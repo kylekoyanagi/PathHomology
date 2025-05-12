@@ -198,7 +198,7 @@ buildpathcomplexV2 input:
 (2) q: integer, 
 (3) n: ineger, up to the length of paths to take
 
-cartesianProcudt Returns: 
+buildpathcomplexV2 Returns: 
 (1) P: path complex, specifically P^q(H).
 ==============================================================================================================#
 function buildpathcomplexV2(H,q,n)
