@@ -192,6 +192,24 @@ removeSelfLoops Returns:
         return p
     end
 
+
+    function removeNselfLoops(P)
+        p = []
+        for i in 1:length(P)
+            regular = true
+            path = P[i]
+            for j in 1:(length(path)-1)
+                if path[j] == path[j+1]
+                    regular = false
+                    break
+                end
+            end
+            if regular == true
+                push!(p, path)
+            end
+        end
+        return p
+    end 
 #==============================================================================================================
 buildpathcomplexV2 input: 
 (1) H: hypergraph 
@@ -201,45 +219,59 @@ buildpathcomplexV2 input:
 buildpathcomplexV2 Returns: 
 (1) P: path complex, specifically P^q(H).
 ==============================================================================================================#
-function buildpathcomplexV2(H,q,n)
-        P = []
-        vertices = H[1]
-        edges = H[2]
-        maximalEdges = maximalEdgeSet(edges)
-        push!(P,string.(vertices))
+    function buildpathcomplexV2(H,q,n)
+            P = []
+            vertices = H[1]
+            edges = H[2]
+            maximalEdges = maximalEdgeSet(edges)
+            push!(P,string.(vertices))
 
-        for i in 2:n
-            Pi = []
-            Vi = cartesianProductN(vertices,vertices,i)
-            for p in Vi
-                validPath = true
-                for j in 1:length(p)
-                    if  length(p) < (j+q-1)
-                        break
-                    end 
-                    slice = p[j:(j+q-1)]
-                    subset = false
-                    for e in maximalEdges
-                        if isSubset2(slice,e) == true
-                            subset = true
+            for i in 2:n
+                Pi = []
+                Vi = cartesianProductN(vertices,vertices,i)
+                for p in Vi
+                    validPath = true
+                    if length(p) < q
+                        subset = false
+                        for e in maximalEdges
+                            if isSubset2(p,e) == true
+                                subset = true
+                            end
+                        end
+                        if subset == false
+                            validPath = false
+                        end
+
+                    else
+                        for j in 1:length(p)
+                            if  length(p) < (j+q-1)
+                                break
+                            end 
+                            slice = p[j:(j+q-1)]
+                            subset = false
+                            for e in maximalEdges
+                                if isSubset2(slice,e) == true
+                                    subset = true
+                                end
+                            end
+                            if subset == false
+                                validPath = false
+                                break
+                            end
                         end
                     end
-                    if subset == false
-                        validPath = false
-                        break
+                    if validPath == true
+                        push!(Pi,string.(p))
                     end
                 end
-                if validPath == true
-                    push!(Pi,string.(p))
-                end
-            end
 
-            if i == 2
-                Pi = removeSelfLoops(Pi)
+               #= if i == 2
+                    Pi = removeSelfLoops(Pi)
+                end=#
+                Pi = removeNselfLoops(Pi)
+                push!(P,Pi)
             end
-
-            push!(P,Pi)
+            return P
         end
-        return P
     end
-end
+

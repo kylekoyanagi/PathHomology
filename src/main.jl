@@ -258,8 +258,39 @@ V = [1,2,3,4,5]
 E = [[1,2],[2,3],[3,1],[1,4],[2,4],[3,4],[1,5],[3,5],[2,5]]
 G = digraph(V,E)
 H = [V,E]
-println("Hypergraph: ", homology.HyperPathHomologyV2(H,2,5))
+#println("Hypergraph: ", homology.HyperPathHomologyV2(H,2,5))
 #H = [[1,2,3,4,5],[[2,1],[4,1],[3,1],[2,3],[4,2],[3,4],[5,2],[4,5],[3,5]]]
 #G = digraph(H[1],H[2])
-println("Suspension: ", homology.pathHomologyV2(G,5))
+#println("Suspension: ", homology.pathHomologyV2(G,5))
 #println(homology.A(G,4))
+
+#=====================================================================================================================
+HYPERGRAPH EXAMPLES 
+======================================================================================================================#
+V = [1,2,3]
+E = [[1,2,3], [1,2], [2,3]]
+E2 = [[1,2],[2,3]]
+
+V3 = [1,2,3,4]
+E3 = [[1,2,3],[1,2,4],[1,3,4],[2,3,4]]
+
+V4 = [1,2,3,4,5]
+E4 = [[1,2,3,4,5], [1,2,3],[1,2,4],[1,3,4],[2,3,4]]
+
+V5 = [1,2,3,4,5,6,7]
+E5 = [[1,2,3,4,5],[1,2,3,4,6,7],[1,2,3],[1,3,4],[1,2,4]]
+
+H = [V,E]
+println(homology.HyperPathHomology(H,2,5))
+
+H2 = [V,E2]
+println(homology.HyperPathHomology(H2,2,5))
+
+H3 = [V3,E3]
+println(homology.HyperPathHomology(H3,2,5))
+ 
+H4 = [V4,E4] 
+println(homology.HyperPathHomology(H4,4,5))
+
+H5 = [V5,E5]
+println(homology.HyperPathHomology(H4,2,5))
