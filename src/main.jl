@@ -151,6 +151,10 @@ end
 #==============================================================================================================#
 # EXAMPLES
 #==============================================================================================================#
+# C3 Example
+VC3 = [1,2,3]
+EC3 = [[1,2],[2,3],[3,1]]
+GC3 = digraph(VC3,EC3)
 
 # C3,1 Example
 VC31 = [1, 2, 3, 4]
@@ -192,8 +196,8 @@ for e in ERP2
 end
 GRP2 = digraph(VRP2,undirectedERP2)
 
-@time homology.pathHomologyV2(GRP2,4)
-@time homology.pathHomologyV2(GRP2,4)
+#@time homology.pathHomologyV2(GRP2,4)
+#println(homology.pathHomologyV2(GRP2,4))
 # Example SC4 
 VSC4 = ["a", 1,2,3,4,"b"]
 ESC4 = [["a", 1], ["a", 2], ["a", 3], ["a", 4],
@@ -213,12 +217,50 @@ for e in E3DT
 end
 
 G3DTorus = digraph(V3DT,E23DT)
-#=
-sfH3DTorus  = homology.pathHomologyV2(G3DTorus,3)
-homology.printSNF(sfH3DTorus)
-=#
+
+#An = homology.A(G3DTorus,3)
+#@time homology.A(G3DTorus,3)
+#sfH3DTorus  = homology.pathHomologyV2(G3DTorus,3)
+#homology.printSNF(sfH3DTorus)
 
 # Example Moibus Strip 
 VM = [1,2,3,4,5,6]
 EM = [[1,2], [2,3], [3,1], [2,4], [4,3], [3,5], [5,4], [6,4], [5,6], [6,5]]
 GM = digraph(VM,EM)
+
+#   2.132485 seconds (44.81 M allocations: 6.147 GiB, 10.94% gc time)
+
+VH = [1,2,22,3,33,4]
+EH = [[1,2], [2,3], [3,4], [1,22], [22,33],[33,4]]
+hexagonUP = digraph(VH,EH)
+#println(homology.pathHomologyV2(hexagonUP,5))
+
+ETH = [[1,2], [2,3], [3,4], [1,22], [22,33],[33,4],[1,3],[2,4],[1,33],[22,4],[1,4]]
+hexagonUPT = digraph(VH,ETH)
+#println(homology.pathHomologyV2(hexagonUPT,5))
+
+#V = [1,2,3]
+#E = [[1,2],[2,3],[3,1]]
+#E2 = [[1,2],[3,2],[3,1]]
+#g1 = digraph(V,E)
+#g2 = digraph(V,E2)
+#println(homology.pathHomologyV2(g1,5))
+#println(homology.pathHomologyV2(g2,5))
+
+V = [1,2,3,4,5,6]
+E = [[1, 2], [1, 3], [1, 4], [2, 3], [2, 5], [4, 5], [4, 6], [5, 6]]
+V2 = [1,2,3]
+E2 = [[1,2],[1,3],[1,2]]
+g2 = digraph(V2,E2)
+#println(homology.pathHomologyV2(g2,5))
+
+V = [1,2,3,4,5]
+E = [[1,2],[2,3],[3,1],[1,4],[2,4],[3,4],[1,5],[3,5],[2,5]]
+G = digraph(V,E)
+H = [V,E]
+println("Hypergraph: ", homology.HyperPathHomologyV2(H,2,5))
+#H = [[1,2,3,4,5],[[2,1],[4,1],[3,1],[2,3],[4,2],[3,4],[5,2],[4,5],[3,5]]]
+#G = digraph(H[1],H[2])
+println("Suspension: ", homology.pathHomologyV2(G,5))
+#println(homology.A(G,4))
+

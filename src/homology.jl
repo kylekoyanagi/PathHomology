@@ -5,6 +5,7 @@ using SparseArrays;
 using BenchmarkTools;
 using Base.Threads;
 
+include("pathcomplex.jl")
 include("smith.jl")
 using .SNF
 
@@ -786,4 +787,62 @@ function pathHomologyV2(X,n)
 
     return sfHomology
 end 
+
+
+#==============================================================================================================
+pathHomologyV2 input: 
+(1) X: A digraph X with specified vertices V and edges E
+(2) n: An integer that specifies the path homology to calculate up to.
+
+pathHomology returns: 
+(1) an array of the path homology for H0 to H(n-2) 
+===============================================================================================================#
+function HyperPathHomologyV2(X,q,n)
+
+    # calculate the allowed paths in a digraph X
+    allowedPaths = pathcomplex.buildpathcomplexV2(X,q,n)
+    
+    # initialize an array for the differentials and homology
+    sfHomology = []
+
+    # Calculate Omega 
+    On = O_n(allowedPaths,n)
+
+    # Calculate the Differentials 
+    ODiff = O_diffV3(On, n)
+    # calculate the path homology for H0
+    zeroMtx = round.(Int128, zeros(1,1))
+    zeroMtx = SparseMatrixCSC{Int128}(zeroMtx)
+    sn1 = snfDiagonal(zeroMtx)
+    sn2 = snfDiagonal(ODiff[2])
+    rowLength = size(ODiff[2])[1]
+    snfH0 = rowLength - length(sn2) - length(sn1)
+    torsion = getTorsion(sn2) 
+    sfHomology = push!(sfHomology, [snfH0, torsion])
+    # calculate the path homology for H1 to H(n-2)
+    for i in 2:(n-1)
+        if (isempty(ODiff[i]) == false) 
+            if isempty(ODiff[i+1]) == true
+
+                sf = snfDiagonal(ODiff[i])
+
+                freePart = size(ODiff[i])[2] - length(sf)
+
+                torsionPart = []
+            else
+                sf1 = snfDiagonal(ODiff[i])
+                sf2 = snfDiagonal(ODiff[i+1])
+                freePart = size(ODiff[i+1])[1] - length(sf2) - length(sf1)
+                torsionPart = getTorsion(sf2) 
+            end
+            sfHomology = push!(sfHomology, [freePart,torsionPart])
+        else
+            sfHomology = push!(sfHomology, [0,[]])
+        end
+    end
+
+    return sfHomology
+end 
+H = [[1,2,3,4,5],[[2,1],[4,1],[3,1],[2,3],[4,2],[3,4],[5,2],[4,5],[3,5]]]
+println(HyperPathHomologyV2(H,2,4))
 end
