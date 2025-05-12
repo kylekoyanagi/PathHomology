@@ -790,14 +790,15 @@ end
 
 
 #==============================================================================================================
-pathHomologyV2 input: 
-(1) X: A digraph X with specified vertices V and edges E
-(2) n: An integer that specifies the path homology to calculate up to.
+HyperPathHomology input: 
+(1) X: A hypergraph X with specified vertices V and edges E
+(2) q: density q; that is the sequence of p n+1 vertices such that any q consequivive vertices of p lie in some edge.
+(3) n: An integer that specifies the path homology to calculate up to.
 
-pathHomology returns: 
+HyperPathHomology returns: 
 (1) an array of the path homology for H0 to H(n-2) 
 ===============================================================================================================#
-function HyperPathHomologyV2(X,q,n)
+function HyperPathHomology(X,q,n)
 
     # calculate the allowed paths in a digraph X
     allowedPaths = pathcomplex.buildpathcomplexV2(X,q,n)

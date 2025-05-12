@@ -263,4 +263,3 @@ println("Hypergraph: ", homology.HyperPathHomologyV2(H,2,5))
 #G = digraph(H[1],H[2])
 println("Suspension: ", homology.pathHomologyV2(G,5))
 #println(homology.A(G,4))
-

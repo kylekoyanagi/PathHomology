@@ -1,5 +1,12 @@
 module pathcomplex
+#==============================================================================================================
+cartesianProduct input: 
+(1) set1: a set 
+(2) set2: a set
 
+cartesianProcudt Returns: 
+(1) the cartesian product of set1Xset2
+==============================================================================================================#
     function cartesianProduct(set1,set2)
         result = []
         for i in set1    
@@ -21,6 +28,15 @@ module pathcomplex
         return result
     end
 
+#==============================================================================================================
+cartesianProductN input: 
+(1) set1: a set 
+(2) set2: a set
+(3) n: an integer, which specifies the number of times you want to take the cartesian product
+
+cartesianProcudtN Returns: 
+(1) the cartesian product n times
+==============================================================================================================#
     function cartesianProductN(set1,set2,n)
         product = cartesianProduct(set1,set2)
 
@@ -31,6 +47,15 @@ module pathcomplex
         return product
     end
 
+
+#==============================================================================================================
+isSubset input: 
+(1) set1: a set 
+(2) set2: a set
+
+isSubset Returns: 
+(1) true, if set1 is contained in set2; false, otherwise
+==============================================================================================================#
     function isSubset(set1,set2)
         count = 0
         len = length(set1)
@@ -82,7 +107,13 @@ module pathcomplex
         end
     end
 
+#==============================================================================================================
+maximalEdgeSet input: 
+(1) E: the edge set of a hypergraph
 
+maximalEdgeSet Returns: 
+(1) the maximal edge set
+==============================================================================================================#
     function maximalEdgeSet(E)
         maximalE = []
 
@@ -144,6 +175,13 @@ module pathcomplex
         return P
     end
 
+#==============================================================================================================
+removeSelfLoops input: 
+(1) P: a set of paths of length 2
+
+removeSelfLoops Returns: 
+(1) p: the set of path of length 2 such that i_0 != i_1
+==============================================================================================================#
     function removeSelfLoops(P)
         p = []
         for i in 1:length(P)
@@ -154,7 +192,16 @@ module pathcomplex
         return p
     end
 
-    function buildpathcomplexV2(H,q,n)
+#==============================================================================================================
+buildpathcomplexV2 input: 
+(1) H: hypergraph 
+(2) q: integer, 
+(3) n: ineger, up to the length of paths to take
+
+cartesianProcudt Returns: 
+(1) P: path complex, specifically P^q(H).
+==============================================================================================================#
+function buildpathcomplexV2(H,q,n)
         P = []
         vertices = H[1]
         edges = H[2]
