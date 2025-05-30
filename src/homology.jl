@@ -7,6 +7,7 @@ module homology
 
     include("pathcomplex.jl")
     include("smith.jl")
+    include("unionfind.jl")
     using .SNF
 
     #==============================================================================================================
@@ -710,8 +711,9 @@ module homology
     (1) an array of the non-zero diagonal elements in the Smith Normal Form
     ==============================================================================================================#
     function snfDiagonal(M)
-        sf, U = SNF.smith(M)
-        #sf, T = smithP(M)
+        sf  = SNF.SNForm(M)
+        #f, T = SNF.smith(M)
+        #sf, T = SNF.smithP(M)
         a, b = size(sf) 
         diagonal_entries = []
         for i in 1:min(a, b)
@@ -762,7 +764,14 @@ module homology
         rowLength = size(ODiff[2])[1]
         snfH0 = rowLength - length(sn2) - length(sn1)
         torsion = getTorsion(sn2) 
+
+        #= UNION FIND to get connected components, not ready for general graph input, 
+        preprocessing work needs to be done to ensure labelling works. 
+        torsion = 0
+        snfH0 = unionfind.connectedComponents(X.vertices,X.edges)
         sfHomology = push!(sfHomology, [snfH0, torsion])
+        =#
+
         # calculate the path homology for H1 to H(n-2)
         for i in 2:(n-1)
             if (isempty(ODiff[i]) == false) 
@@ -844,6 +853,141 @@ module homology
 
         return sfHomology
     end 
+
+    function buildAdjacencyMatrix(X)
+
+    end
+
+    function addEdge(adj, u, v)
+        push!(adj[u], v)
+        push!(adj[v], u)
+        return adj
+    end
+
+    function buildAdjacencyList(X)
+        adj = [[] for _ in 1:length(X.vertices)]
+        E = X.edges 
+        for e in E 
+            adj = addEdge(adj, e[1], e[2])
+        end
+        return adj
+    end
+
+    function tripleList(X)
+        V = X.vertices
+        adjList = buildAdjacencyList(X)
+        triple_list = []
+        for i in 1:(length(V)-1)
+            u = V[i]
+            uAdj = adjList[u]
+            for j in 2:length(V)
+                if i == j 
+                    break
+                end
+                v = V[j]
+                vAdj = adjList[v]
+                W = intersect(uAdj,vAdj)
+
+                if isempty(W) == false
+                    push!(triple_list, (u,v, W))
+                end
+            end
+        end
+        return triple_list
+    end
+
+    function type1(triple_list, X)
+        type1List = []
+        E = X.edges
+        for t in triple_list
+            u = t[1]
+            v = t[2]
+            W = t[3]
+            W1 = []
+            for w in W
+                if isempty(intersect([[u, w]], E)) == true 
+                    break
+                else 
+                    if isempty(intersect([[w,v]], E)) == true
+                        break
+                    else 
+                        push!(W1, w)
+                    end
+                end
+            end
+            if isempty(W1) == false
+                push!(type1List, (u,v, W1))
+            end
+        end
+        return type1List
+    end
+
+    function type2(triple_list, X)
+        type2List = []
+        E = X.edges
+        for t in triple_list
+            u = t[1]
+            v = t[2]
+            W = t[3]
+            W2 = []
+            for w in W
+                if isempty(intersect([[v, w]], E)) == true 
+                    break
+                else 
+                    if isempty(intersect([[w,u]], E)) == true
+                        break
+                    else 
+                        push!(W2, w)
+                    end
+                end
+            end
+            if isempty(W2) == false
+                push!(type1List, (u,v, W2))
+            end
+        end
+        return type2List
+    end
+
+    function type3(triple_list, X)
+        type3List = []
+        E = X.edges
+
+        for t in triple_list
+            u = t[1]
+            v = t[2]
+            W = t[3]
+            W3i = []
+            W3j = []
+            for i in 1:length(W)
+                wi = W[i]
+                for j in 1:length(W)
+                    wj = W[j]
+                    if i == j 
+                        break
+                    end
+                    if isempty(intersect([[wi,u]], E)) == false
+                        if isempty(intersect([[wi,v]], E)) == false
+                            if isempty(intersect([[u,wj]], E)) == false
+                                if isempty(intersect([[v,wj]], E)) == false
+                                    push!(W3i, wi)
+                                    push!(W3j, wj)
+                                end
+                            end
+                        end
+                    end
+
+                end
+
+            end
+            if isempty(W3i) == false
+                if isempty(W3j) == false
+                    push!(type3List, (u,v,W3i, W3j))
+                end
+            end
+        end
+        return type3List
+    end
+
 
 
 end

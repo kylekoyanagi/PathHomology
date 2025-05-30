@@ -11,13 +11,10 @@ using Base.Threads;
 =#
 # Column Subtraction
 function colsubtraction!(x, col1, col2, factor = 1)
-    rows = rowvals(x)
-    vals = nonzeros(x)
-    m, n = size(x)
+    rows = copy(rowvals(x))
     nz = nzrange(x, col2)
     for i in nz
         row = rows[i]
-        val = vals[i]
         x[row, col1] = x[row, col1] - factor*x[row,col2]
     end
 end
@@ -37,13 +34,10 @@ end
 
 # Column Addition *if factor1 != +/-1, then scalecol! is used to permenatley scale col1*
 function coladdition!(x, col1, col2, factor1 = 1, factor2 = 1)
-    rows = rowvals(x)
-    vals = nonzeros(x)
-    m, n = size(x)
+    rows = copy(rowvals(x))
     scalecol!(x, col1, factor1)
     for i in nzrange(x, col2)
         row = rows[i]
-        val = vals[i]
         x[row, col1] = x[row, col1] + factor2*x[row,col2]
     end
 end
@@ -108,7 +102,8 @@ end
         (1) e: if a nonzero column entry exists its column number is returned; otherwise -1 is returned
 =#
 function nonzerocol(x,t)
-    indices = findnz(dropzeros(x))[2]
+    dropzeros!(x)
+    indices = findnz(x)[2]
     defferedCols = []
     uniIndices = unique(indices)
 
@@ -118,6 +113,7 @@ function nonzerocol(x,t)
             if (1 in x[:,e]) || (-1 in x[:,e])
             return e
             else
+
                 push!(defferedCols, e)
             end
         end
@@ -364,7 +360,7 @@ end
 
 # Parallel Column Subtraction
 function colsubtractionp!(x, col1, pivotcol, factor = 1)
-    rows = rowvals(x)
+    rows = copy(rowvals(x))
     vals = nonzeros(x)
     m, n = size(x)
     nz = findnz(pivotcol)[1]
@@ -399,7 +395,7 @@ end
 
 # Parallel Column Addition
 function coladditionp!(x, col1, pivotcol, factor1 = 1, factor2 = 1)
-    rows = rowvals(x)
+    rows = copy(rowvals(x))
     vals = nonzeros(x)
     m, n = size(x)
     scalecol!(x, col1, factor1)
@@ -444,6 +440,13 @@ function rowsubtractionp!(M, row1, row2, factor=1)
     end
 end
 
+function makeCopies(x,n)
+    copyArray = []
+    for i in 1:n
+        push!(copyArray, x)
+    end
+    return copyArray
+end
 #=
     Parallel Smith Normal Form
     INPUT: 
@@ -464,7 +467,7 @@ function smithP(M, with_transform = true)
         T = sparse(Matrix(1I, n, n))
     end
     for t in 1:min
-        M = dropzeros(M)
+        #M = dropzeros(M)
 
         # find nonzero column, priority on columns with a +/- 1
         nonzeroCol = nonzerocol(M, t)
@@ -492,21 +495,20 @@ function smithP(M, with_transform = true)
             swaprow!(M, t, nonzeroRow)
         end
 
-
         rowPartition = distMatrix2(k,t,m)
         parSize = length(rowPartition)
         C = Channel{Tuple{SparseMatrixCSC{Int128, Int128}, Vector{Int64}}}(length(rowPartition))
-        
+        #pivotRowCopies = makeCopies()
         # loop through the partition
         @threads for l in 1:parSize
             indicies = rowPartition[l]
             mm = length(indicies)
-            
+            pivot = deepcopy(M[t,t])
             # clear everything under the pivot in the partition i.e. perform row operations
             for i in indicies
                 if !(i == t)
-                    pivot = M[t,t]
-                    ai = M[i, t]
+
+                    ai = deepcopy(M[i, t])
 
                     # If the entry M[i,t] is nonzero, we need to clear it 
                     if !(ai == 0)
@@ -552,7 +554,7 @@ function smithP(M, with_transform = true)
 
         colPartition = distMatrix2(k,t,n)
         parSize = length(colPartition)
-
+        dropzeros!(M)
         pivotcol = M[:,t]
         pivotcolT = T[:,t]
         cols = []
@@ -567,13 +569,14 @@ function smithP(M, with_transform = true)
         @threads for l in 1:parSize
             indicies = colPartition[l]
             nn = length(indicies)
+            pivotj = deepcopy(M[t,t])
 
             # clear everything to the right of the pivot in the partition i.e. perform column operations
             for index in 1:length(indicies)
                 j = indicies[index]
                 if !(j == t)
-                    pivot = M[t,t]
-                    aj = M[t, j]
+
+                    aj = deepcopy(M[t, j])
                     pivotcol = cols[l]
                     pivotcolT = colsT[l]
 
@@ -584,7 +587,7 @@ function smithP(M, with_transform = true)
                             M[:,i] = M[:,i] - M[t,i]*M[:,t]
                         to clear the entry M[t,i].
                         =#      
-                        if pivot == 1
+                        if pivotj == 1
                             colsubtractionp!(M,j,pivotcol,aj)
 
                             if with_transform == true
@@ -596,8 +599,10 @@ function smithP(M, with_transform = true)
                             M[:,i] = M[:,i] - (pivot/M[t,i])*M[:,t]
                         to clear the entry M[t,i]
                         =#     
-                        elseif (mod(aj,pivot) == 0)
-                            factor = aj / pivot
+                        elseif pivotj == 0
+                            println("pivot is 0 at: ", t)
+                        elseif (mod(aj,pivotj) == 0)
+                            factor = aj / pivotj
                                 colsubtractionp!(M,j,pivotcol,factor)
 
                             if with_transform == true
@@ -615,14 +620,14 @@ function smithP(M, with_transform = true)
                         to clear the entry M[t,i]
                         =#  
                         else
-                            d, x, y = gcdExt(pivot, aj)
+                            d, x, y = gcdExt(pivotj, aj)
                             coladditionp!(M,j,pivotcol,y,x)
 
                             if with_transform == true
                                 coladditionp!(T,j,pivotcolT,y,x)
 
                             end
-                            factor = pivot / d
+                            factor = pivotj / d
                             scalecol!(M, j, factor)
                             colsubtractionp!(M,j,pivotcol,1)
 
@@ -640,6 +645,184 @@ function smithP(M, with_transform = true)
     end
     if with_transform == true
         return M,T
+    end
+    return M
+end
+
+function colsubtractionC!(x, col1, col2, factor = 1)
+    rows = copy(rowvals(x))
+    nz = nzrange(x, col2)
+    for i in nz
+        row = rows[i]
+        col1[row] = col1[row] - factor*x[row,col2]
+    end
+end
+
+function scalecolC!(col,scale)
+    indices, vals = findnz(col)
+    for i in eachindex(indices)
+        index = indices[i]
+        value = vals[i]
+        col[index] = value*scale
+    end
+    return col
+end
+
+function coladditionC!(x, col1, col2, factor1 = 1, factor2 = 1)
+    rows = copy(rowvals(x))
+    scalecolC!(col1, factor1)
+    for i in nzrange(x, col2)
+        row = rows[i]
+        col1[row] = col1[row] + factor2*x[row,col2]
+    end
+end
+
+function scalerowC!(row,scale)
+    indicies, vals = findnz(row)
+    for i in eachindex(indicies)
+        index = indicies[i]
+        value = vals[i]
+        row[index] = value*scale
+    end
+    return row
+end
+
+function rowadditionC!(M, row1, row2, factor1=1, factor2 = 1)
+    indicies, vals = findnz(M[row2,:])
+    scalerowC!(row1, factor1)
+
+    for i in eachindex(indicies)
+        index = indicies[i]
+        value = vals[i]
+        row1[index] = row1[index] + factor2*M[row2,index]
+    end
+    return row1
+end
+
+function rowsubtractionC!(M, row1, row2, factor=1)
+    indices, vals = findnz(M[row2,:])
+
+    for i in eachindex(indices)
+        index = indices[i]
+        value = vals[i]
+        row1[index] = row1[index] - factor*M[row2,index]
+    end
+    return row1
+end
+
+function clearRow(M, row, pivot)
+    nzcols = copy(findnz(M[row,:])[1])
+
+    B = Channel{Tuple{SparseVector{Int64, Int64}, Int64}}(max(size(M)[1],size(M)[2]))
+    @threads for i in eachindex(nzcols)
+    #for i in eachindex(nzcols)
+
+        index = nzcols[i]
+        aj = M[row, index]
+        colj = M[:,index]
+        pivotval = M[row,pivot]
+        if !(pivot == index)
+            if pivotval == 1
+                colsubtractionC!(M,colj,pivot,aj)
+
+            elseif (mod(aj,pivotval) == 0)
+                factor = aj / pivotval
+
+                colsubtractionC!(M,colj,pivot,factor)
+            else
+                d, x, y = gcdExt(pivotval, aj)
+                coladditionC!(M,colj,pivot,y,x)
+
+                factor = pivotval / d
+                scalecolC!(colj, factor)
+                colsubtractionC!(M,colj,pivot,1)
+
+            end
+
+        end
+        put!(B, (colj, index))
+    end
+    close(B)
+    sparseV = collect(B)
+
+    for (col, index) in sparseV
+        M[:,index] = col
+    end
+    return M
+end
+
+function clearCol(M, col, pivot)
+    nzrows = copy(findnz(M[:,col])[1])
+
+    B = Channel{Tuple{SparseVector{Int64, Int64}, Int64}}(max(size(M)[1],size(M)[2]))
+    @threads for i in eachindex(nzrows)
+        index = nzrows[i]
+        ai = M[index,col]
+        rowi = M[index,:]
+        pivotval = M[pivot, col]
+
+        if !(pivot == index)
+            if pivotval == 1
+                rowsubtractionC!(M,rowi,pivot,ai)
+
+            elseif (mod(ai,pivotval) == 0)
+                factor = ai / pivotval
+
+                rowsubtractionC!(M,rowi,pivot,factor)
+            else
+                d, x, y = gcdExt(pivotval, ai)
+                rowadditionC!(M,rowi,pivot,y,x)
+
+                factor = pivotval / d
+                scalerowC!(rowi, factor)
+                rowsubtractionC!(M,rowi,pivot,1)
+
+            end
+        end
+        put!(B, (rowi, index))
+    end
+    close(B)
+
+    sparseV = collect(B)
+    for (row, index) in sparseV
+        M[index,:] = row
+    end
+    return M
+end
+
+function SNForm(M)
+    m, n = size(M)
+    min = minimum([m,n])
+    k = nthreads()
+    for t in 1:min
+        M = dropzeros(M)
+
+        # find nonzero column, priority on columns with a +/- 1
+        nonzeroCol = nonzerocol(M, t)
+
+        if nonzeroCol == -1
+            continue
+        end
+
+        # swap columns t and the nonzero column
+        if !(t == nonzeroCol)
+            swapcol!(M, t, nonzeroCol)
+        end
+
+        # find nonzero row, priority on row with a +/- 1
+        nonzeroRow = nonzerorow(M, t, t)
+        if nonzeroRow == -1
+            continue
+        end
+        
+        # swap row t and the nonzero row
+        if !(t == nonzeroRow)
+            swaprow!(M, t, nonzeroRow)
+        end
+
+        M = clearRow(M,t,t)
+
+        M = clearCol(M,t,t)
     end
     return M
 end
