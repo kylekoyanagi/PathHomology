@@ -8,9 +8,9 @@ module graph_preprocess
             push!(newV, i)
             vertD[V[i]] = i
         end
+        for e in E
 
-        for e in E 
-            push!(newE, [vertD[e[1]],vertD[e[2]]])
+            push!(newE, [vertD[string.(e[1])],vertD[string.(e[2])]])
         end
         return newV, newE
     end   
@@ -184,6 +184,7 @@ module graph_preprocess
     end
 
     function cleanGraph(V,E)
+        V, E = relabelGraph(V,E)
         adj = buildAdjacencyList(V,E)
         remove = true 
         n = length(V)
@@ -227,5 +228,130 @@ module graph_preprocess
             end
         end
         return V,E
+    end
+
+    function makeSymmetricReflexive(A)
+        B=copy(A)
+        for a in A
+            if !( [a[2],a[1]] in B)
+                push!(B,[a[2],a[1]] )
+            end
+        end
+        return B
+    end
+    
+    function cartesian_product(arrays) 
+        # Base case: if arrays is empty, return an array with an empty tuple
+        if isempty(arrays)
+            return [()]
+        end
+        
+        # Get the first array and the rest of the arrays
+        first_array, rest_arrays = arrays[1], arrays[2:end]
+        
+        # Recursive call to get the Cartesian product of the rest of the arrays
+        rest_product = cartesian_product(rest_arrays)
+        
+        # Combine each element of the first array with each tuple from the rest product
+        result = [(x, rest...) for x in first_array for rest in rest_product]
+        
+        return result
+    end
+    
+    function multBoxProd(graphs) #input list of graphs
+    
+        vert=cartesian_product([G.vertices for G in graphs])
+        edge=[]
+        
+        for v in vert
+            
+            for w in vert
+                tot = 0 # check if its an edge in the product
+                
+                for i = 1:length(v)
+                    
+                    if !(v[i] == w[i]) && ( [v[i],w[i]] in graphs[i].edges) #check if theye connected in g_i
+                        tot += 1
+                    elseif !([v[i],w[i]] in graphs[i].edges)
+                        tot += 2
+                    end
+                    
+                end
+                if tot <2
+                    push!(edge,[v,w])
+                end
+            end
+        end
+    
+        return(digraph(vert,edge))
+    
+    end
+    
+    function cartesian_product(arrays) 
+        # Base case: if arrays is empty, return an array with an empty tuple
+        if isempty(arrays)
+            return [()]
+        end
+        
+        # Get the first array and the rest of the arrays
+        first_array, rest_arrays = arrays[1], arrays[2:end]
+        
+        # Recursive call to get the Cartesian product of the rest of the arrays
+        rest_product = cartesian_product(rest_arrays)
+        
+        # Combine each element of the first array with each tuple from the rest product
+        result = [(x, rest...) for x in first_array for rest in rest_product]
+        
+        return result
+    end
+    
+    #Allows you to relate two vertices in a graph
+    function quotient_vertices(G,v1,v2)
+        new_vert=[]
+        new_edges=[]
+    
+        for v in G.vertices
+            if !(v==v2)
+                push!(new_vert,v)
+            end
+        end
+    
+        for i in G.edges
+            if !(i[1]==v2 || i[2]==v2)
+                push!(new_edges,i)
+            end
+            if i[1]==v2 && !(i[2]==v2) && !(i[2]==v1)
+                push!(new_edges,[v1,i[2]])
+            end
+            if !(i[1]==v2) && i[2]==v2 && !(i[1]==v1)
+                push!(new_edges,[i[1],v1])
+            end
+        end
+        return digraph(unique!(new_vert),unique!(new_edges))
+    end
+    
+    #Allows you to relate two vertices in a graph
+    function quotient_vertices(G,v1,v2)
+        new_vert=[]
+        new_edges=[]
+    
+        for v in G.vertices
+            if !(v==v2)
+                push!(new_vert,v)
+            end
+        end
+    
+        for i in G.edges
+            if !(i[1]==v2 || i[2]==v2)
+                push!(new_edges,i)
+            end
+            if i[1]==v2 && !(i[2]==v2) && !(i[2]==v1)
+                push!(new_edges,[v1,i[2]])
+            end
+            if !(i[1]==v2) && i[2]==v2 && !(i[1]==v1)
+                push!(new_edges,[i[1],v1])
+            end
+        end
+        return digraph(unique!(new_vert),unique!(new_edges))
     end
 end
