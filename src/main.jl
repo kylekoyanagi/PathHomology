@@ -25,133 +25,14 @@ mutable struct digraph
     edges:: Array
 end
 
-function makeSymmetricReflexive(A)
-    B=copy(A)
-    for a in A
-        if !( [a[2],a[1]] in B)
-            push!(B,[a[2],a[1]] )
-        end
-    end
-    return B
-end
-
-function cartesian_product(arrays) 
-    # Base case: if arrays is empty, return an array with an empty tuple
-    if isempty(arrays)
-        return [()]
-    end
-    
-    # Get the first array and the rest of the arrays
-    first_array, rest_arrays = arrays[1], arrays[2:end]
-    
-    # Recursive call to get the Cartesian product of the rest of the arrays
-    rest_product = cartesian_product(rest_arrays)
-    
-    # Combine each element of the first array with each tuple from the rest product
-    result = [(x, rest...) for x in first_array for rest in rest_product]
-    
-    return result
-end
-
-function multBoxProd(graphs) #input list of graphs
-
-    vert=cartesian_product([G.vertices for G in graphs])
-    edge=[]
-    
-    for v in vert
-        
-        for w in vert
-            tot = 0 # check if its an edge in the product
-            
-            for i = 1:length(v)
-                
-                if !(v[i] == w[i]) && ( [v[i],w[i]] in graphs[i].edges) #check if theye connected in g_i
-                    tot += 1
-                elseif !([v[i],w[i]] in graphs[i].edges)
-                    tot += 2
-                end
-                
-            end
-            if tot <2
-                push!(edge,[v,w])
-            end
-        end
-    end
-
-    return(digraph(vert,edge))
-
-end
-
-function cartesian_product(arrays) 
-    # Base case: if arrays is empty, return an array with an empty tuple
-    if isempty(arrays)
-        return [()]
-    end
-    
-    # Get the first array and the rest of the arrays
-    first_array, rest_arrays = arrays[1], arrays[2:end]
-    
-    # Recursive call to get the Cartesian product of the rest of the arrays
-    rest_product = cartesian_product(rest_arrays)
-    
-    # Combine each element of the first array with each tuple from the rest product
-    result = [(x, rest...) for x in first_array for rest in rest_product]
-    
-    return result
-end
-
-#Allows you to relate two vertices in a graph
-function quotient_vertices(G,v1,v2)
-    new_vert=[]
-    new_edges=[]
-
-    for v in G.vertices
-        if !(v==v2)
-            push!(new_vert,v)
-        end
-    end
-
-    for i in G.edges
-        if !(i[1]==v2 || i[2]==v2)
-            push!(new_edges,i)
-        end
-        if i[1]==v2 && !(i[2]==v2) && !(i[2]==v1)
-            push!(new_edges,[v1,i[2]])
-        end
-        if !(i[1]==v2) && i[2]==v2 && !(i[1]==v1)
-            push!(new_edges,[i[1],v1])
-        end
-    end
-    return digraph(unique!(new_vert),unique!(new_edges))
-end
-
-#Allows you to relate two vertices in a graph
-function quotient_vertices(G,v1,v2)
-    new_vert=[]
-    new_edges=[]
-
-    for v in G.vertices
-        if !(v==v2)
-            push!(new_vert,v)
-        end
-    end
-
-    for i in G.edges
-        if !(i[1]==v2 || i[2]==v2)
-            push!(new_edges,i)
-        end
-        if i[1]==v2 && !(i[2]==v2) && !(i[2]==v1)
-            push!(new_edges,[v1,i[2]])
-        end
-        if !(i[1]==v2) && i[2]==v2 && !(i[1]==v1)
-            push!(new_edges,[i[1],v1])
-        end
-    end
-    return digraph(unique!(new_vert),unique!(new_edges))
-end
 #==============================================================================================================#
 # EXAMPLES
 #==============================================================================================================#
+# Point Example
+V = [1,2,3]
+E = []
+GP = digraph(V,E)
+
 # C3 Example
 VC3 = [1,2,3]
 EC3 = [[1,2],[2,3],[3,1]]
@@ -167,12 +48,11 @@ VC22 = [1,2,3,4]
 EC22 =[[1,2],[2,4],[1,3],[3,4]]
 GC22 = digraph(VC22,EC22)
 
-#homology.pathHomologyV2(GC22,3)
-
 # Undirected Square Example
 VUC4 = [1,2,3,4]
 EUC4 = [[1,2], [2,1], [2,3], [3,2], [3,4], [4,3], [4,1], [1,4]]
 GUC4 = digraph(VUC4, EUC4)
+
 
 ## Example RP2
 VRP2 = [1,2,3,4,5,
@@ -199,8 +79,6 @@ for e in ERP2
 end
 GRP2 = digraph(VRP2,undirectedERP2)
 
-#@time homology.pathHomologyV2(GRP2,4)
-#println(homology.pathHomologyV2(GRP2,4))
 # Example SC4 
 VSC4 = ["a", 1,2,3,4,"b"]
 ESC4 = [["a", 1], ["a", 2], ["a", 3], ["a", 4],
@@ -221,408 +99,43 @@ end
 
 G3DTorus = digraph(V3DT,E23DT)
 
-An = homology.A(G3DTorus,3)
-#@time homology.A(G3DTorus,3)
-#homology.restrictedMatrixV2(An,3)
-On = homology.O_n(An,3)
-
-ODiff = homology.O_diffV3(On,3)
-
-#println(ODiff[3])
-@time homology.snfDiagonal(ODiff[3])
-#@btime homology.pathHomologyV2(G3DTorus,1)
-#sfH3DTorus  = homology.pathHomologyV2(G3DTorus,3)
-#println("3D Torus: ", sfH3DTorus)
-#homology.printSNF(sfH3DTorus)
-#@btime homology.pathHomologyV2(G3DTorus,3)
 # Example Moibus Strip 
 VM = [1,2,3,4,5,6]
 EM = [[1,2], [2,3], [3,1], [2,4], [4,3], [3,5], [5,4], [6,4], [5,6], [6,5]]
 GM = digraph(VM,EM)
-#homology.pathHomologyV2(GM,5)
-#   2.132485 seconds (44.81 M allocations: 6.147 GiB, 10.94% gc time)
-
-VH = [1,2,22,3,33,4]
-EH = [[1,2], [2,3], [3,4], [1,22], [22,33],[33,4]]
-hexagonUP = digraph(VH,EH)
-#println(homology.pathHomologyV2(hexagonUP,5))
-
-ETH = [[1,2], [2,3], [3,4], [1,22], [22,33],[33,4],[1,3],[2,4],[1,33],[22,4],[1,4]]
-hexagonUPT = digraph(VH,ETH)
-#println(homology.pathHomologyV2(hexagonUPT,5))
-
-#V = [1,2,3]
-#E = [[1,2],[2,3],[3,1]]
-#E2 = [[1,2],[3,2],[3,1]]
-#g1 = digraph(V,E)
-#g2 = digraph(V,E2)
-#println(homology.pathHomologyV2(g1,5))
-#println(homology.pathHomologyV2(g2,5))
-
-V = [1,2,3,4,5,6]
-E = [[1, 2], [1, 3], [1, 4], [2, 3], [2, 5], [4, 5], [4, 6], [5, 6]]
-V2 = [1,2,3]
-E2 = [[1,2],[1,3],[1,2]]
-g2 = digraph(V2,E2)
-#println(homology.pathHomologyV2(g2,5))
-
-V = [1,2,3,4,5]
-E = [[1,2],[2,3],[3,1],[1,4],[2,4],[3,4],[1,5],[3,5],[2,5]]
-G = digraph(V,E)
-H = [V,E]
-#println("Hypergraph: ", homology.HyperPathHomologyV2(H,2,5))
-#H = [[1,2,3,4,5],[[2,1],[4,1],[3,1],[2,3],[4,2],[3,4],[5,2],[4,5],[3,5]]]
-#G = digraph(H[1],H[2])
-#println("Suspension: ", homology.pathHomologyV2(G,5))
-#println(homology.A(G,4))
 
 #=====================================================================================================================
 HYPERGRAPH EXAMPLES 
 ======================================================================================================================#
 V = [1,2,3]
-E = [[1,2,3], [1,2], [2,3]]
-E2 = [[1,2],[2,3]]
+E = [[1,2,3], [1,2],[2,3]]
 
-V3 = [1,2,3,4]
-E3 = [[1,2,3],[1,2,4],[1,3,4],[2,3,4]]
+V2 = [1,2,3]
+E2 = [[1,2,3],[1,2],[1],[2],[3]]
 
-V4 = [1,2,3,4,5]
-E4 = [[1,2,3,4,5], [1,2,3],[1,2,4],[1,3,4],[2,3,4]]
+V3 = [1,2,3]
+E3 = [[1,2],[2,3]]
 
-V5 = [1,2,3,4,5,6,7]
-E5 = [[1,2,3,4,5],[1,2,3,4,6,7],[1,2,3],[1,3,4],[1,2,4]]
+V9 = [1,2,3,4]
+E9 = [[1,2,3],[1,2,4],[1,3,4],[2,3,4]]
+
+V19 = [1,2,3,4,5]
+E19 = [[1,2,3,4,5], [1,2,3],[1,2,4],[1,3,4],[2,3,4]]
+
+V22 = [1,2,3,4,5,6,7]
+E22 = [[1,2,3,4,5],[1,2,3,4,6,7],[1,2,3],[1,3,4],[1,2,4]]
 
 H = [V,E]
-#println(homology.HyperPathHomology(H,2,5))
+#homology.HyperPathHomology(H,2,5)
 
-H2 = [V,E2]
-#println(homology.HyperPathHomology(H2,2,5))
+H2 = [V2,E2]
+#homology.HyperPathHomology(H2,2,5)
 
 H3 = [V3,E3]
-#println(homology.HyperPathHomology(H3,2,5))
+#homology.HyperPathHomology(H3,2,5)
  
-H4 = [V4,E4] 
-#println(homology.HyperPathHomology(H4,4,5))
+H9 = [V9,E9] 
+#homology.HyperPathHomology(H9,4,5)
 
-H5 = [V5,E5]
-#println(homology.HyperPathHomology(H4,2,5))
-
-# function to remove edges of degree n 
-
-function cleanDegn(V,E)
-    for v in V
-        incoming = false
-        outgoingEdgeSet = [] 
-        outgoingVertexSet = [] 
-        for e in E 
-            if v == e[2] # check if the vertex has an incoming edge
-                incoming = true
-                break
-            else
-                if v == e[1] 
-                    push!(outgoingEdgeSet, e)
-                    push!(outgoingVertexSet, e[2])
-                end
-            end
-        end
-        outgoingCond = false
-        if incoming == false
-            n = length(outgoingVertexSet)
-            if n > 1
-                for i in 1:n
-                    outgoingVertex = outgoingVertexSet[i]
-                    tempSet = copy(outgoingVertexSet)
-                    for edge in E
-                        if outgoingVertex == edge[1]
-                            if edge[2] in tempSet
-                                deleteat!(tempSet, findall(x->x==edge[2],tempSet))
-
-                            end
-                        end
-                    end
-                    deleteat!(tempSet, findall(x->x==outgoingVertex,tempSet))
-                    if isempty(tempSet) == true
-                        outgoingCond = true
-                        break
-                    end
-                end
-
-                if outgoingCond == true
-                    deleteat!(V, findall(x->x==v,V))
-                    for e in outgoingEdgeSet
-                        deleteat!(E, findall(x->x==e,E))
-                    end
-                end
-            end
-        end
-    end
-    return V,E
-end
-
-# function to determine if two vertices are an edge
-function isEdge(e, E)
-    for edge in E
-        if (e[1] == edge[1]) && (e[2] == edge[2])
-            return true
-        end
-
-        if (e[1] == edge[2]) && (e[2] == edge[1])
-            return true
-        end
-    end
-    return false
-end
-
-# function to determine if an two vertices are a semi-edge
-function isSemiEdge(e, E)
-    c = e[1]
-    cList = []
-    b = e[2]
-    bList = []
-
-    for edge in E
-        if c == edge[1]
-            push!(cList,edge)
-        end
-        if b == edge[2]
-            push!(bList, edge)
-        end
-    end
-
-    for cEdge in cList
-        for bEdge in bList
-            if cEdge[2] == bEdge[1]
-                return true
-            end
-        end
-    end
-    return false
-end
-
-# function to partition vertices into the graphs connected componets
-function connectedComponets(V,E)
-    partition = []
-    for v in V
-        vList = [] 
-        push!(vList, v)
-        for e in E
-            if v == e[1]
-                push!(vList, e[2])
-            end
-            if v == e[2]
-                push!(vList, e[1])
-            end
-        end
-        if isempty(partition) == true
-            push!(partition, vList)
-        else
-            for list in partition
-                intersection = intersect(list, vList)
-   
-                if isempty(intersection) == false
-                    pos = findall(x->x==list, partition)
-                    combine = union(list, vList)
-                    comb = sort(combine)
-                    if comb in partition 
-                    else
-                        replace(partition, list =>comb)
-                    end
-                    #partition[pos] = combine
-                else
-                    if sort(vList) in partition
-                    else
-                        push!(partition, vList)
-                    end
-                end
-            end
-        end
-    end
-    return partition
-end
-
-# function to determine if two vertices are in the same componet
-function sameComponent(e, E)
-    b = e[1]
-    c = e[2]
-    for edgeSet in E
-        if (b in edgeSet) && (c in edgeSet)
-            return true
-        end
-    end
-    return false
-end
-
-# function to remove edges of degree n 
-function cleanDegn2(V,E)
-    for v in V
-        incoming = false
-        incomingEdgeSet = [] 
-        incomingVertexSet = [] 
-        for e in E 
-            if v == e[1] # check if the vertex has an outgoing edge
-                incoming = true
-                break
-            else
-                if v == e[2] 
-                    push!(incomingEdgeSet, e)
-                    push!(incomingVertexSet, e[1])
-                end
-            end
-        end
-        incomingCond = false
-        if incoming == false
-            n = length(incomingVertexSet)
-            if n > 1
-                for i in 1:n
-                    incomingVertex = incomingVertexSet[i]
-                    tempSet = copy(incomingVertexSet)
-                    for edge in E
-                        if incomingVertex == edge[2]
-                            if edge[1] in tempSet
-                                deleteat!(tempSet, findall(x->x==edge[1],tempSet))
-                            end
-                        end
-                    end
-                    deleteat!(tempSet, findall(x->x==incomingVertex,tempSet))
-                    if isempty(tempSet) == true
-                        incomingCond = true
-                        break
-                    end
-                end
-
-                if incomingCond == true
-                    deleteat!(V, findall(x->x==v,V))
-                    for e in incomingEdgeSet
-                        deleteat!(E, findall(x->x==e,E))
-                    end
-                end
-            end
-        end
-    end
-    return V,E
-end
-
-function cleanEdges(V,E)
-    for e in E 
-        branch = true
-
-        incoming = false
-        incomingCount = 0
-        outgoing = false
-        outgoingCount = 0
-        for e2 in E
-            if !(e == e2)
-                if (e[2] == e2[1])
-                    outgoing = true
-                    outgoingCount = outgoingCount + 1
-                elseif (e[1] == e2[2])
-                    incoming = true
-                    incomingCount = incomingCount + 1
-                elseif (e[1] == e2[1])
-                    incoming = true
-                    incomingCount = incomingCount + 1
-                elseif (e[2] == e2[2])
-                    outgoing = true
-                    outgoingCount = outgoingCount + 1
-                end
-            end
-        end
-        if (outgoing == true) && (incoming == true)
-            branch = false
-        elseif (outgoing == true) && (incoming == false)
-        elseif (outgoing == false) && (incoming == true)
-            if incomingCount > 1 
-                branch = false
-            end
-        end
-
-        if branch == true
-            deleteat!(E, findall(x->x==e,E))
-        end
-    end
-
-    for v in V
-        remove = true
-        for e in E
-            if (v == e[1])
-                remove = false
-                break
-            elseif (v == e[2])
-                remove = false
-                break 
-            end
-        end
-        if remove == true
-            deleteat!(V, findall(x->x==v,V))
-        end
-    end
-    return V,E
-end
-
-function cleanDeg1plus1(V,E)
-    changeHomology1 = []
-    changeHomology0 = []
-    #VertexPartition = connectedComponets(V,E)
-    for v in V
-        incomingEdges = []
-        incomingVertex = [] 
-        outgoingEdges = []
-        outgoingVertex = []
-        for e in E
-            if v == e[1]
-                push!(outgoingEdges,e)
-                push!(outgoingVertex,e[2])
-
-
-                if length(outgoingEdges) > 1
-                    break
-                end
-            end
-            if v == e[2]
-                push!(incomingEdges, e)
-                push!(incomingVertex,e[1])
-
-                if length(incomingEdges) > 1
-                    break
-                end
-            end
-        end
-
-        if isempty(incomingVertex) == true
-            break
-        end
-        if isempty(outgoingVertex) == true
-            break
-        end
-
-        if !(incomingVertex[1] == outgoingVertex[1])
-
-            deleteat!(E, findall(x->x==incomingEdges[1],E))
-            deleteat!(E, findall(x->x==outgoingEdges[1],E))
-
-            deleteat!(V, findall(x->x==v,V))
-
-            semiE = isSemiEdge([incomingVertex[1],outgoingVertex[1]], E)
-            edge = isEdge([incomingVertex[1],outgoingVertex[1]], E)
-
-            if (semiE == true) || (edge == true)
-                push!(changeHomology0, false)
-                push!(changeHomology1, false)
-            end
-
-            if (semiE == false) && (edge == false)
-                VertexPartition = connectedComponets(V,E)
-                connected = sameComponent([incomingVertex[1],outgoingVertex[1]],VertexPartition)
-
-                if connected == true
-                    push!(changeHomology0, false)
-                    push!(changeHomology1, true)
-                else
-                    push!(changeHomology0, true)
-                    push!(changeHomology1, false)
-                end
-            end
-        end
-    end
-    return V, E
-end
+H19 = [V19,E19]
+#homology.HyperPathHomology(H19,2,5)
