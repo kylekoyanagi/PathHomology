@@ -8,6 +8,7 @@ module homology
     include("pathcomplex.jl")
     include("smith.jl")
     include("unionfind.jl")
+    include("graph_preprocess.jl")
     using .SNF
 
     #==============================================================================================================
@@ -284,6 +285,35 @@ module homology
         return differential
     end
 
+    function d_nV2P(A,n)
+        paths = A[n]
+        differential = Dict()
+        if n == 1
+            B = Channel{Tuple{String,Int64}}(length(paths))
+            @threads for i in 1:length(paths)
+                path = paths[i]
+                diff = dV2(path,n,1)
+                put!(B, (path, diff))
+            end
+            close(B)
+            info = collect(B)  
+        else
+            B = Channel{Tuple{Vector{String},Dict{Any, Any}}}(length(paths))
+            @threads for i in 1:length(paths)
+                path = paths[i]
+                diff = dV2(path,n,1)
+                put!(B, (path, diff))
+            end
+            close(B)
+            info = collect(B)
+         end
+
+        for (path,diff) in info 
+            differential[path] = diff
+        end
+
+        return differential
+    end
     #==============================================================================================================
     restrictedMatrixV2 input: 
     (1) A: An array of allowed paths [i.e. A(X,n)]
@@ -295,7 +325,7 @@ module homology
     function restrictedMatrixV2(A,n)
 
         # calculate differential 
-        diff = d_nV2(A,n)
+        diff = d_nV2P(A,n)
 
         # initialize matrix 
         rMatrix = []
@@ -374,6 +404,89 @@ module homology
         return sparse(rMatrix), diff
     end
 
+
+    function restrictedMatrixV2P(A,n)
+
+        # calculate differential 
+        diff = d_nV2P(A,n)
+
+        # initialize matrix 
+        rMatrix = []
+
+        # get the unique paths of the differential and check if path is in A[n-1]
+        uniRows, disallowed = uniqueRowsV2(A[n-1], diff)
+        if n == 1
+            rMatrix = []
+            vertexList = keys(diff)
+            for vertex in vertexList
+                vertexCoeff = diff[vertex]
+                rMatrix = push!(rMatrix, vertexCoeff)
+            end
+            return reduce(hcat, rMatrix), diff
+        
+        elseif isempty(diff) == true
+            return rMatrix, diff
+            
+        else
+            # iterate through each differential path 
+            i = 1
+            pathKeys = collect(keys(diff))
+            B = Channel{Vector{Int}}(length(pathKeys)) # output channel of images
+
+            @threads for j in 1:length(pathKeys)
+                pathKey = pathKeys[j]
+                col = zeros(length(uniRows))
+                # iterate through each path of length n-1 in the differential 
+                differential = diff[pathKey]
+                diffKeys = keys(differential)
+                for diffKey in diffKeys
+                    substring = false
+                    # iterate through each allowed path of length n-1
+                    for apath in A[n-1]
+                        for i in 1:length(apath)
+                            if (apath[i] == diffKey[i])
+                                substring = true
+                            else
+                                substring = false
+                                break
+                            end
+                        end
+                        if substring == true
+                            break
+                        end
+                    end
+
+                    # if path in the differential is not an allowed path add +/-1 depending on its sign 
+                    if substring == true
+                        
+                    else 
+                        index = getIndex(uniRows, diffKey) # get the position in the array that corresponds to the specific path
+                        diffCoeff = differential[diffKey]
+                        if diffCoeff == -1
+                                col[index] = -1 
+                        else
+                                col[index] = 1
+                        end
+                    end
+                end
+                put!(B, col)
+                #rMatrix = push!(rMatrix,col)
+            end
+        end
+
+        close(B) # Close the channel when done
+
+        rMatrix = collect(B) # Collect all images from the channel
+
+        if length(rMatrix) == 1
+            rMatrix = reshape(rMatrix[1],length(rMatrix[1]), 1)
+            rMatrix = round.(Int64, rMatrix)
+            return sparse(rMatrix), diff
+        end
+        rMatrix = reduce(hcat,rMatrix)
+        rMatrix = round.(Int64, rMatrix)
+        return sparse(rMatrix), diff
+    end
     #==============================================================================================================
     O_n input: 
     (1) A: An array of allowed paths [i.e. A(X,n)]
@@ -391,10 +504,10 @@ module homology
         oString = Dict()
         differentialList = [] # list to store the differentials 
 
-        diff0 = d_nV2(A,1)
+        diff0 = d_nV2P(A,1)
         differentialList = push!(differentialList, diff0)
 
-        diff1 = d_nV2(A, 2)
+        diff1 = d_nV2P(A, 2)
         differentialList = push!(differentialList, diff1)
 
         # Add O_0 
@@ -479,6 +592,119 @@ module homology
             push!(OString, oString)
             push!(O, O_n)
         end
+        return O, OString, differentialList
+    end
+
+    function O_nP(A,n)
+        O = []  # an array to store the O_n's
+        O_n = [] # an array to store all the elements in O_n  (i.e. stores comb)
+        comb = Dict() # a dictionary to store an element in O_n
+        OString = [] 
+        oString = Dict()
+        differentialList = [] # list to store the differentials 
+
+        diff0 = d_nV2P(A,1)
+        differentialList = push!(differentialList, diff0)
+
+        diff1 = d_nV2P(A, 2)
+        differentialList = push!(differentialList, diff1)
+
+        # Add O_0 
+        for v in A[1]    
+            comb = Dict()
+            comb[v] = 1
+            push!(O_n, comb)
+
+            # string representation 
+            s = " + "*join(v)
+            oString[v] =  s
+        end 
+        push!(OString, oString)
+        push!(O, O_n)
+
+        # Add O_1
+        O_n = []
+        oString = Dict()
+        for e in A[2]
+            comb = Dict()
+            comb[e] = 1
+
+            # string representation
+            s = " + "*join(e)
+            oString[e] = s
+            push!(O_n, comb)
+        end
+        O = push!(O, O_n)
+        push!(OString, oString)
+
+        # Add O_n for O_2 to O_(n-1)
+        B = Channel{Tuple{Int64,Vector{Any},Dict{Any, Any},Dict{Any, Any}}}(n)
+        @threads for i in 3:n
+            O_n = []
+            oString = Dict()
+            rMatrix, diff = restrictedMatrixV2(A,i) # Matrix representing Cn-1/An-1, the differentials for paths of length i
+            #push!(differentialList, diff) 
+            pathKeys = collect(keys(diff)) # get a list of paths of length i, used for indexing later 
+            if iszero(rMatrix) == false 
+                rMatrix = sparse(Matrix{Int128}(rMatrix))
+                rBasis = SNF.nullity(rMatrix)[2] # Calculate the matrix representing the nullspace of Cn-1/An-1
+
+                # iterate through each column in the basis 
+                for j in 1:size(rBasis)[2] 
+                    comb = Dict() # dictionary to store elements in O_i 
+                    v = rBasis[:,j] # column vector in the basis
+                    linComb = [] # array to store the string representation of a path with its sign +/-
+                    pathKey = [] # array to store the paths that the string represents 
+
+                    # iterate through each row in the column
+                    for k in 1:length(v) 
+                        if v[k] != 0 
+                            path = pathKeys[k]
+                            comb[path] = v[k]
+                            push!(pathKey, path)
+                            sign = v[k]
+
+                            # string representation 
+                            if sign == 1
+                                s = " + "*join(path)
+                                push!(linComb, s)
+                            else
+                                s = " - "*join(path)
+                                push!(linComb, s)
+                            end
+                        end
+                    end 
+                    lC = join(linComb)
+                    oString[pathKey] = lC
+                    push!(O_n, comb)               
+                end
+            else 
+                for p in A[i]
+                    comb = Dict()
+                    comb[p] = 1
+                    push!(O_n,comb)
+
+                    s = " + "*join(p) 
+                    oString[p] =  s
+                end
+            end
+            #push!(OString, oString)
+            #push!(O, O_n)
+
+
+            put!(B, (i, O_n, oString, diff))
+        end
+        close(B)
+
+        info = collect(B)
+        sortedinfo = sort(info)
+        for i in 1:length(sortedinfo)
+            j, on, ostr, diff = sortedinfo[i]
+            push!(OString, ostr)
+            push!(O, on)
+            push!(differentialList, diff)
+        end
+
         return O, OString, differentialList
     end
 
@@ -711,19 +937,22 @@ module homology
     (1) an array of the non-zero diagonal elements in the Smith Normal Form
     ==============================================================================================================#
     function snfDiagonal(M)
-        sf  = SNF.SNForm(M)
-        #f, T = SNF.smith(M)
-        #sf, T = SNF.smithP(M)
-        a, b = size(sf) 
-        diagonal_entries = []
-        for i in 1:min(a, b)
-            x= sf[i,i]
-            if x == 0
-                break
+        if isempty(M) == false
+            sf  = SNF.SNForm(M)
+            #f, T = SNF.smith(M)
+            #sf, T = SNF.smithP(M)
+            a, b = size(sf) 
+            diagonal_entries = []
+            for i in 1:min(a, b)
+                x= sf[i,i]
+                if x == 0
+                    break
+                end
+                push!(diagonal_entries, x)
             end
-            push!(diagonal_entries, x)
+            return diagonal_entries
         end
-        return diagonal_entries
+        return []
     end
     
     function getTorsion(arr)
@@ -762,6 +991,7 @@ module homology
         sn1 = snfDiagonal(zeroMtx)
         sn2 = snfDiagonal(ODiff[2])
         rowLength = size(ODiff[2])[1]
+
         snfH0 = rowLength - length(sn2) - length(sn1)
         torsion = getTorsion(sn2) 
 
@@ -797,6 +1027,62 @@ module homology
         return sfHomology
     end 
 
+    function pathHomologyV3(X,n)
+        # preprocess graph 
+        X.vertices, X.edges = graph_preprocess.cleanGraph(X.vertices,X.edges)
+
+        # calculate the allowed paths in a digraph X
+        allowedPaths = A(X,n)
+        
+        # initialize an array for the differentials and homology
+        sfHomology = []
+
+        # Calculate Omega 
+        On = O_n(allowedPaths,n)
+        # Calculate the Differentials 
+        ODiff = O_diffV3(On, n)
+        # calculate the path homology for H0
+        #=
+        zeroMtx = round.(Int128, zeros(1,1))
+        zeroMtx = SparseMatrixCSC{Int128}(zeroMtx)
+        sn1 = snfDiagonal(zeroMtx)
+        sn2 = snfDiagonal(ODiff[2])
+        rowLength = size(ODiff[2])[1]
+
+        snfH0 = rowLength - length(sn2) - length(sn1)
+        torsion = getTorsion(sn2) 
+        =#
+        #=UNION FIND to get connected components, not ready for general graph input, 
+        preprocessing work needs to be done to ensure labelling works. =#
+        torsion = 0
+        snfH0 = unionfind.connectedComponents(X.vertices,X.edges)
+        sfHomology = push!(sfHomology, [snfH0, torsion])
+    
+
+        # calculate the path homology for H1 to H(n-2)
+        for i in 2:(n-1)
+            if (isempty(ODiff[i]) == false) 
+                if isempty(ODiff[i+1]) == true
+
+                    sf = snfDiagonal(ODiff[i])
+
+                    freePart = size(ODiff[i])[2] - length(sf)
+
+                    torsionPart = []
+                else
+                    sf1 = snfDiagonal(ODiff[i])
+                    sf2 = snfDiagonal(ODiff[i+1])
+                    freePart = size(ODiff[i+1])[1] - length(sf2) - length(sf1)
+                    torsionPart = getTorsion(sf2) 
+                end
+                sfHomology = push!(sfHomology, [freePart,torsionPart])
+            else
+                sfHomology = push!(sfHomology, [0,[]])
+            end
+        end
+
+        return sfHomology
+    end 
 
     #==============================================================================================================
     HyperPathHomology input: 
@@ -850,12 +1136,11 @@ module homology
                 sfHomology = push!(sfHomology, [0,[]])
             end
         end
-
+        printSNF(sfHomology)
         return sfHomology
     end 
 
     function buildAdjacencyMatrix(X)
-
     end
 
     function addEdge(adj, u, v)
