@@ -1027,6 +1027,9 @@ module homology
         return sfHomology
     end 
 
+    #==============================================================================================================
+    Version 3 is still in progress... 
+    ===============================================================================================================#
     function pathHomologyV3(X,n)
         # preprocess graph 
         X.vertices, X.edges = graph_preprocess.cleanGraph(X.vertices,X.edges)
