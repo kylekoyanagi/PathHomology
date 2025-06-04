@@ -991,10 +991,10 @@ module homology
         sn1 = snfDiagonal(zeroMtx)
         sn2 = snfDiagonal(ODiff[2])
         rowLength = size(ODiff[2])[1]
-
+    
         snfH0 = rowLength - length(sn2) - length(sn1)
         torsion = getTorsion(sn2) 
-
+        push!(sfHomology,[snfH0,torsion])
         #= UNION FIND to get connected components, not ready for general graph input, 
         preprocessing work needs to be done to ensure labelling works. 
         torsion = 0
