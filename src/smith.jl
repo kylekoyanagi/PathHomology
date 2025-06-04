@@ -751,6 +751,55 @@ function clearRow(M, row, pivot)
     return M
 end
 
+function clearRowT(M, T, row, pivot)
+    nzcols = copy(findnz(M[row,:])[1])
+
+    B = Channel{Tuple{SparseVector{Int128,Int64},SparseVector{Int128, Int64},Int64}}(max(size(M)[1],size(M)[2]))
+    @threads for i in eachindex(nzcols)
+    #for i in eachindex(nzcols)
+
+        index = nzcols[i]
+        aj = M[row, index]
+        colj = M[:,index]
+        colTj = T[:,index]
+        pivotval = M[row,pivot]
+        if !(pivot == index)
+            if pivotval == 1
+                colsubtractionC!(M,colj,pivot,aj)
+                colsubtractionC!(T,colTj,pivot,aj)
+            elseif (mod(aj,pivotval) == 0)
+                factor = aj / pivotval
+
+                colsubtractionC!(M,colj,pivot,factor)
+                colsubtractionC!(T,colTj,pivot,factor)
+
+            else
+                d, x, y = gcdExt(pivotval, aj)
+                coladditionC!(M,colj,pivot,y,x)
+                coladditionC!(T,colTj,pivot,y,x)
+
+
+                factor = pivotval / d
+                scalecolC!(colj, factor)
+                colsubtractionC!(M,colj,pivot,1)
+                scalecolC!(colTj, factor)
+                colsubtractionC!(T,colTj,pivot,1)
+
+            end
+
+        end
+        put!(B, (colj,colTj, index))
+    end
+    close(B)
+    sparseV = collect(B)
+    for (col,colT, index) in sparseV
+        M[:,index] = col
+        T[:,index] = colT
+    end
+    return M,T
+end
+
+
 function clearCol(M, col, pivot)
     nzrows = copy(findnz(M[:,col])[1])
 
@@ -790,10 +839,14 @@ function clearCol(M, col, pivot)
     return M
 end
 
-function SNForm(M)
+function SNForm(M, with_transform = false)
     m, n = size(M)
     min = minimum([m,n])
     k = nthreads()
+    if with_transform == true
+        T = sparse(Matrix(1I, n, n))
+    end
+
     for t in 1:min
         M = dropzeros(M)
 
@@ -807,6 +860,9 @@ function SNForm(M)
         # swap columns t and the nonzero column
         if !(t == nonzeroCol)
             swapcol!(M, t, nonzeroCol)
+            if with_transform == true
+                swapcol!(T, t, nonzeroCol)
+            end
         end
 
         # find nonzero row, priority on row with a +/- 1
@@ -820,10 +876,18 @@ function SNForm(M)
             swaprow!(M, t, nonzeroRow)
         end
 
-        M = clearRow(M,t,t)
+        if with_transform == true 
+            M,T = clearRowT(M,T,t,t)
+        else 
+            M = clearRow(M,t,t)
+        end
 
         M = clearCol(M,t,t)
     end
+    if with_transform == true 
+        return M,T 
+    end
+
     return M
 end
 
@@ -836,8 +900,8 @@ end
         (2) nullspaceBasis: a matrix whose columns are vectors of the nullspace basis
 =# 
 function nullity(M)
-    S,T = smithP(M)
-
+    #S,T = smithP(M)
+    S,T = SNForm(M,true)
     m,n = size(S)
     l = minimum([m,n])
     r = 0
