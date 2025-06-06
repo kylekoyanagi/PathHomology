@@ -789,12 +789,12 @@ module homology
                 On_1Dict[linearComb] = differential
                 OmegaD = push!(OmegaD, differential)
             end
-
             OmegaMatrix = [] 
             OmegaDict = Dict()
 
             # iterate through each differential in Omega n 
             for (K, ODiff) in On_1Dict
+                
                 OmegaNCol = zeros(length(keys(O)))
                 OmegaKeys = keys(ODiff)
                 OStringKeys = keys(OString)
@@ -827,6 +827,7 @@ module homology
                                 end
                             end
                         else
+
                             if OKey in OmegaKeys # check if path in in the differential
                                 if (length(OKeyList) == combs) && (combs == 1) # check if the element in Omega is a linear combination or not
                                     index = getIndex(OStringKeys, OKey) 
@@ -849,13 +850,13 @@ module homology
 
                                     ODiffKeySign = ODiff[OKey] # Sign of Path in differential
                                     OmegaKeySign = on[OKey] # Sign of path in Omega
-
                                     if ODiffKeySign == OmegaKeySign # if the two signs are equal 
                                         coeff = OmegaNCol[index] 
                                         OmegaNCol[index] = coeff + 1 # add 1
                                     else
                                         coeff = OmegaNCol[index]
                                         OmegaNCol[index] = coeff - 1 # subtract 1
+
                                     end
 
                                     ODiff = delete!(ODiff, OKey) # remove key from differential 
@@ -882,11 +883,37 @@ module homology
                                     linearCombination = push!(linearCombination, OKey)
                                     combs = combs + 1 
                                 end
+
+                            # NEW PART TO SEE IF WORKS!!
+                            else 
+                                linearCombination = push!(linearCombination, OKey)
+                                combs = combs + 1  
+                                if combs == (length(OKeyList) + 1)
+                                    index = getIndexV2(OStringKeys, linearCombination) # get the index
+                                    for okey in linearCombination
+                                        if okey in OmegaKeys
+                                            ODiffKeySign = ODiff[okey] # Sign of Path in differential
+                                            OmegaKeySign = on[okey] # Sign of path in Omega
+        
+                                            if ODiffKeySign == OmegaKeySign # if the two signs are equal 
+                                                coeff = OmegaNCol[index] 
+                                                OmegaNCol[index] = coeff + 1 # add 1
+                                            else
+                                                coeff = OmegaNCol[index]
+                                                OmegaNCol[index] = coeff - 1 # subtract 1
+                                            end
+                                        end
+                                    end
+                                    for p in linearCombination
+                                        ODiff = delete!(ODiff, p)  # delete each path in the differential that was in the Omega Element
+                                    end
+                                end
                             end
                     
                         end
                         OmegaKeys = keys(ODiff) # Update the keys in the differential 
                     end
+
                 end
 
                 if OmegaNCol in OmegaMatrix
@@ -906,7 +933,6 @@ module homology
                         end
                     end
                 end
-    
                 OmegaDict[K] = OmegaNCol
                 OmegaMatrix = push!(OmegaMatrix, OmegaNCol)
             end
@@ -939,9 +965,10 @@ module homology
     function snfDiagonal(M)
         if isempty(M) == false
             sf  = SNF.SNForm(M)
-            #f, T = SNF.smith(M)
+            #sf, T = SNF.smith(M)
             #sf, T = SNF.smithP(M)
             a, b = size(sf) 
+
             diagonal_entries = []
             for i in 1:min(a, b)
                 x= sf[i,i]
@@ -983,6 +1010,7 @@ module homology
 
         # Calculate Omega 
         On = O_n(allowedPaths,n)
+
         # Calculate the Differentials 
         ODiff = O_diffV3(On, n)
         # calculate the path homology for H0
@@ -1015,6 +1043,7 @@ module homology
                 else
                     sf1 = snfDiagonal(ODiff[i])
                     sf2 = snfDiagonal(ODiff[i+1])
+
                     freePart = size(ODiff[i+1])[1] - length(sf2) - length(sf1)
                     torsionPart = getTorsion(sf2) 
                 end
@@ -1057,7 +1086,7 @@ module homology
         =#
         #=UNION FIND to get connected components, not ready for general graph input, 
         preprocessing work needs to be done to ensure labelling works. =#
-        torsion = 0
+        torsion = []
         snfH0 = unionfind.connectedComponents(X.vertices,X.edges)
         sfHomology = push!(sfHomology, [snfH0, torsion])
     

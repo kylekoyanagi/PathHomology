@@ -139,7 +139,7 @@ maximalEdgeSet Returns:
     end
 
 
-    function buildpathcomplex(H,q,n)
+     function buildpathcomplex(H,q,n)
         P = []
         vertices = H[1]
         edges = H[2]

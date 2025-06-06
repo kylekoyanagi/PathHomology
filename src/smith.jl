@@ -902,6 +902,7 @@ end
 function nullity(M)
     #S,T = smithP(M)
     S,T = SNForm(M,true)
+    #S,T = smith(M, true)
     m,n = size(S)
     l = minimum([m,n])
     r = 0
