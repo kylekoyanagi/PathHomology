@@ -708,6 +708,236 @@ module homology
         return O, OString, differentialList
     end
 
+
+    function pairDifferential(On,On_1, cancelTerms)
+        OmegaList = collect(keys(On))
+        Omega_1List = On_1
+        #println(Omega_1List)
+        omegaPairList = []
+        omegaPairDict = Dict() 
+        for omega in OmegaList
+            newBoundary = Dict()
+            omegaBoundary = On[omega]
+            boundarySum = collect(keys(omegaBoundary))
+            combination = []
+            possibleCombs = []
+            cancelTermsKeys = collect(keys(cancelTerms))
+
+            if omega in cancelTermsKeys
+                notAllowed = cancelTerms[omega]
+            else 
+                notAllowed = []
+            end
+
+            for elt in boundarySum
+                added = false
+                for omega_1 in Omega_1List
+                    paths = collect(keys(omega_1))
+                    signs = collect(values(omega_1))
+                    if (elt in paths)
+
+                        if (length(paths) == 1)
+                            #index = findall(x->x==elt,paths)
+
+                            if  signs[1]== omegaBoundary[elt]
+                                newBoundary[elt] = 1
+                                added = true
+                                break
+                            else
+                                newBoundary[elt] = -1
+                                added = true
+                                break
+                            end
+                        else
+                            push!(possibleCombs, (paths,signs))
+                        end
+                    end
+                end
+
+                if added == false
+                    push!(combination, elt)
+                end
+            end
+
+
+            loopPossibleCombs = copy(possibleCombs)
+            for comb in loopPossibleCombs
+                posPath = comb[1]
+                signs = comb[2]
+                len = 0
+                pathComb = []
+                for i in 1:length(posPath)
+                    path = posPath[i]
+
+                    if path in combination
+                       len = len + 1 
+                       push!(pathComb, (path, signs[i]))
+                    end
+                end
+
+                if len == length(posPath)
+                    sign = omegaBoundary[posPath[1]]
+                    if sign == signs[1]
+                        newBoundary[posPath] = 1
+                        for p in posPath
+                            filter!(x->x!=p,combination)
+                        end
+                        filter!(x->x!=comb, possibleCombs)
+
+                    else
+                        newBoundary[posPath] = -1
+                        for p in posPath                           
+                            filter!(x->x!=p,combination)
+                        end
+                        filter!(x->x!=comb, possibleCombs)
+                    end
+                end
+            end
+            loopPossibleCombs = copy(possibleCombs)
+            loopCombination = copy(combination)
+            for comb1 in loopCombination 
+                for comb2 in loopCombination
+                    if !(comb1 == comb2)
+                        loopPossibleCombs = copy(possibleCombs)
+                        comb1List = []
+                        comb2List = []
+                        for posComb in loopPossibleCombs
+                            pths, sgns = posComb
+                            if comb1 in pths
+                                push!(comb1List, posComb)
+                            end
+                            if comb2 in pths
+                                push!(comb2List, posComb)
+                            end
+                        end
+
+                        for posComb1 in comb1List
+
+                            pths1, sgns1 = posComb1
+                            idx1 = getIndex(pths1, comb1)
+
+                            removeElt1 = filter(x->x!=pths1[idx1], pths1)
+                            #removeElt1sgns = filter(x->x!=sgns1[idx1], pths1)
+                            #filter!(x->x!=(pths1[idx1], sgns1[idx1]), posComb1)
+                            for posComb2 in comb2List
+
+                                #idx2 = getIndex(pths2, comb2)
+                                pths2, sgns2 = posComb2
+                                #removeElt2 = filter(x->x!=(pths2[idx2], sgns2[idx2]),posComb2)
+                                #println("removeElt, pths2", (removeElt1, pths2))
+                                for remElt in removeElt1
+                                    if remElt in pths2
+                                    #if issubset(removeElt1,pths2) == true
+
+                                        removeIdx = getIndex(pths2, removeElt1)
+
+                                        sign1 = omegaBoundary[comb1]
+                                        if sign1 == sgns1[idx1] 
+                                            newBoundary[pths1] = 1
+                                            for p in pths1
+                                                filter!(x->x!=p,combination)
+                                            end
+                                            filter!(x->x!=comb1, possibleCombs)
+                                        else
+                                            newBoundary[pths1] = -1
+                                            for p in pths1
+                                                filter!(x->x!=p,combination)
+                                            end
+                                            filter!(x->x!=comb1, possibleCombs)
+                                        end
+
+                                        idx2 = getIndex(pths2, comb2)
+                                        sign2 = omegaBoundary[comb2]
+                                        if sign2 == sgns2[idx2]
+                                            newBoundary[pths2] = 1
+                                            for p in pths2
+                                                filter!(x->x!=p,combination)
+                                            end
+                                            filter!(x->x!=comb2, possibleCombs)
+                                        else
+                                            newBoundary[pths2] = -1
+                                            for p in pths2
+                                                filter!(x->x!=p,combination)
+                                            end
+                                            filter!(x->x!=comb2, possibleCombs)
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
+            #=
+            loopPossibleCombs = copy(possibleCombs)
+            for comb in loopPossibleCombs
+                posPath = comb[1]
+                signs = comb[2]
+                len = 0
+                pathComb = []
+                println("posPath: ",posPath)
+                cancelTerms = []
+                contains = false
+                for cancelTerm in notAllowed
+                    cancelPath = cancelTerm[1]
+                    cancelSign = cancelTerm[2]
+                    println("CP: ",(cancelPath, posPath))
+                    if cancelPath in posPath 
+                        println("cancelPath: ",cancelPath)
+                        push!(cancelTerms, cancelPath)
+                        contains = true
+                    end
+                end
+                if contains == true
+                    for i in 1:length(posPath)
+                        path = posPath[i]
+                        if path in cancelTerms
+                            #continue
+                        else
+                            if path in combination
+                            len = len + 1 
+                            push!(pathComb, (path, signs[i]))
+                            end
+                        end
+                    end
+
+                    if isempty(pathComb) == false
+                        p,s = pathComb[1]
+                        omegaComb = []
+                        for om in p 
+                            push!(omegaComb, om )
+                        end
+                        if s == omegaBoundary[p]
+                            newBoundary[posPath] = 1
+                            for p in posPath                         
+                                filter!(x->x!=p,combination)
+                            end
+                            filter!(x->x!=comb, possibleCombs)
+                            for cancelPath in cancelTerms
+                                filter!(x->x!=(cancelPath, 1), notAllowed)
+                            end
+                        else
+                            newBoundary[posPath] = -1
+                            for p in posPath
+                                filter!(x->x!=p,combination)
+                            end
+                            filter!(x->x!=comb, possibleCombs)
+                            for cancelPath in cancelTerms
+                                filter!(x->x!=(cancelPath, -1), notAllowed)
+                            end
+                        end
+                    end
+                end
+            end
+            =#
+
+            omegaPairDict[omega] = newBoundary
+            #push!(omegaPairList, newBoundary)
+        end
+        return omegaPairDict
+    end
+
     #==============================================================================================================
     O_diffV3 input: 
     (1) On: A tuple from the function O_n. 
@@ -743,12 +973,12 @@ module homology
             On_1 = OInfo[1][i+1]
             On_1Dict = Dict()
             diffInfo = OInfo[3][i+1]
-
+            notAllowed = Dict()
             # iterate through each element in Omega i+1
             for o in On_1 
-                linearComb = keys(o) 
+                linearComb = collect(keys(o))
                 differential = Dict()
-
+                cancelTerms = []
                 # iterate through each path in an element of Omega i+1
                 for path in linearComb
                     pathSign = o[path] # sign of a path in an element in Omega
@@ -782,161 +1012,544 @@ module homology
                         #= 
                         IDEA: check if the sign is 0 in the above for loop. If it is remove it from the dict. 
                         =#
+                        push!(cancelTerms, (path, 1))
+                        push!(cancelTerms, (path, -1))
                         differential = delete!(differential, path)
                     end
                 end
-
+                notAllowed[linearComb] = cancelTerms
                 On_1Dict[linearComb] = differential
                 OmegaD = push!(OmegaD, differential)
             end
             OmegaMatrix = [] 
             OmegaDict = Dict()
+            #println("On_1Dict: ", On_1Dict)
 
-            # iterate through each differential in Omega n 
-            for (K, ODiff) in On_1Dict
-                
-                OmegaNCol = zeros(length(keys(O)))
-                OmegaKeys = keys(ODiff)
-                OStringKeys = keys(OString)
+            if !(i == 1)
+                pairedOmegaDict = pairDifferential(On_1Dict, O, notAllowed)
+                #println("parieddict: ", pairedOmegaDict)
+                #println(pairedOmegaDict)
+                test = collect(keys(pairedOmegaDict))
 
-                # interate through each elment in Omega n-1
-                for on in O 
-                    OKeyList = keys(on)
-                    combs = 1
-                    linearCombination = [] 
+                omega_elts = [k for k in test]
 
-                    # iterate each path in an element in Omega
-                    for OKey in OKeyList
-                        if typeof(OKey) == String
-                            if [OKey] in OmegaKeys
-                                OKey = [OKey]
-                                if length(OKeyList) == combs
-                                    index = getIndex(OStringKeys, OKey[1])
-                                    
-                                    ODiffKeySign = ODiff[OKey] # Sign of Path in differential
-                                    OmegaKeySign = on[OKey[1]]
-
-                                    if ODiffKeySign == OmegaKeySign
-                                        coeff = OmegaNCol[index]
-                                        OmegaNCol[index] = coeff + 1
-                                    else
-                                        coeff = OmegaNCol[index]
-                                        OmegaNCol[index] = coeff - 1
-                                    end
-                                    ODiff = delete!(ODiff, OKey)
+                for omega_elt in omega_elts
+                    On_1String = collect(keys(OString))
+                    OmegaNCol = zeros(length(keys(O)))
+                    boundary_elts = collect(keys(pairedOmegaDict[omega_elt]))
+                    
+                    og_boundary = collect(keys(On_1Dict[omega_elt]))
+                    goodBoundary_elts = []
+                    matchings = Dict()
+                    trackBoundary_elts = copy(boundary_elts)
+                    for boundary_elt in boundary_elts
+                        if typeof(boundary_elt) == Vector{String}
+                            push!(goodBoundary_elts, boundary_elt)
+                        else 
+                            og_paths  = [] 
+                            for path in boundary_elt 
+                                if path in og_boundary
+                                    push!(og_paths, path)
                                 end
+                            end
+                            if length(boundary_elt) == length(og_paths)
+                                push!(goodBoundary_elts, boundary_elt)
+
+                            else
+                                badPaths = []
+                                for path in boundary_elt 
+                                    if path in og_paths
+
+                                    else
+                                        push!(badPaths, path)
+                                    end
+                                end
+                                matchings[boundary_elt] = (badPaths, length(badPaths))
+                                for elt in trackBoundary_elts
+                                    if !(elt == boundary_elt)
+                                        if issubset(badPaths, elt) == true
+                                            push!(goodBoundary_elts, boundary_elt)
+                                            #push!(goodBoundary_elts, elt)
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+
+                    goodBoundary_elts = unique(goodBoundary_elts)
+
+                    if isempty(matchings) == true
+
+                    else
+                        sortMatchings = sort(collect(matchings), by = x ->x.second[2], rev = true)
+                        copySortMatchings = copy(sortMatchings)
+                        for elt1 in copySortMatchings 
+                            badPaths1, l1 = elt1[2]
+                            allPaths1 = elt1[1]
+
+                            hasMatch = []
+                            contained = false
+                            pathContained = Dict()
+                            for path in badPaths1
+                                pathContained[path] = []
+                                for elt2 in copySortMatchings 
+                                    badPaths2, l2 = elt2[2]
+                                    allPaths2 = elt2[1]
+
+                                    if !(allPaths1 == allPaths2)
+                                        if path in badPaths2
+                                            push!(pathContained[path], true)
+                                        end
+                                    end
+                                end
+                            end
+
+                            for path in badPaths1 
+                                if isempty(pathContained[path ]) == true
+                                    filter!(x->x!=elt1, sortMatchings)   
+                                end
+                            end
+                            #=
+                            for elt2 in copySortMatchings 
+                                badPaths2, l2 = elt2[2]
+                                if !(badPaths1 == badPaths2)
+                                    for path in badPaths1
+
+                                        if path in badPaths2
+                                            push!(hasMatch, 0)
+                                        else
+                                            push!(hasMatch, 1)
+                                        end
+                                    end
+                                end
+                            end
+                            if length(hasMatch) == (length(copySortMatchings)-1)
+                                println("elt1 remove: ", elt1)
+                                filter!(x->x!=elt1, sortMatchings)   
+                            end
+                            =#
+                        end
+                        #=
+                        if i == 4
+                            sum = 0 
+                            for sm in sortMatchings 
+                                p,s = sm[2]
+                                sum = sum + s
+                            end
+                            if sum > 2
+                                println("omega: ", omega_elt)
+                                println("og boundary: ", og_boundary)
+                                println("sortMatchings: ", sortMatchings)
+                                #println("mathcings: ", matchings)
+                            end
+                        end
+                        =#
+                        
+                        good_omegas = [] 
+                        for elt in sortMatchings 
+                            push!(good_omegas, elt[1])
+                        end
+
+                        matchKeys = collect(keys(matchings))
+                        matchingsMinusOmegas = setdiff(matchKeys, good_omegas)
+                        for good_elt in good_omegas 
+                            if good_elt in goodBoundary_elts 
+
+                            else
+                                push!(goodBoundary_elts, good_elt)
+                            end
+                        end
+
+                        for bad_elt in matchingsMinusOmegas 
+                            if bad_elt in goodBoundary_elts 
+                                filter!(x->x!=bad_elt, goodBoundary_elts)
+                            end
+                        end
+                        #temp = setdiff(goodBoundary_elts, matchingsMinusOmegas)
+                        ## CURRENT ASSUMPTION: once you remove the omega elements that have a path that is not in any other omega element you are good to build the matrix
+                        #goodBoundary_elts = temp 
+
+                    end
+                    goodBoundary_elts = unique(goodBoundary_elts)
+
+                    #println("On_1Dict", On_1Dict)
+                    for boundary_elt in goodBoundary_elts
+                    #for boundary_elt in boundary_elts
+                        if  typeof(boundary_elt) == Vector{String}
+                            if length(boundary_elt) > 2
+                                index = getIndex(On_1String, [boundary_elt])
+                                if index == -1
+                                    index = getIndex(On_1String, boundary_elt)
+                                end
+
+                            else 
+                                index = getIndex(On_1String, boundary_elt)
                             end
                         else
+                            index = getIndexV2(On_1String, boundary_elt) 
+                        end
+                        coeff = OmegaNCol[index]
+                        OmegaNCol[index] = coeff + pairedOmegaDict[omega_elt][boundary_elt]
+                    end
+                    #=
+                    if i == 4
+                            println("omega_elt: ", omega_elt)
+                            #println(On_1[omega_elt])
+                            println("good boundary: ",goodBoundary_elts)
+                            #println(boundary_elts)
+                            println(OmegaNCol)
+                            s = 0
+                            for e in OmegaNCol
+                                s = s + abs(e)
+                            end
+                            println((length(goodBoundary_elts), s))
+                            println()
+                    end
+                    =#
+                    unique_Dict = Dict()
+                    for boundary_elt1 in goodBoundary_elts 
+                        contained = false
+                        unique_elts = copy(boundary_elt1)
+                        for boundary_elt2 in goodBoundary_elts 
+                            if !(boundary_elt1 == boundary_elt2)
+                                # if first type is [1,2,3]
+                                if typeof(boundary_elt1) == Vector{String} 
+                                
+                                    #=
 
-                            if OKey in OmegaKeys # check if path in in the differential
-                                if (length(OKeyList) == combs) && (combs == 1) # check if the element in Omega is a linear combination or not
-                                    index = getIndex(OStringKeys, OKey) 
-                                    if index == -1 # checks if getIndex returns a valid index
-                                        index = 1
-                                        # if it doensn't find the valid index
-                                        for OStringKey in OStringKeys
-                                            if (typeof(OStringKey) == Vector{Any}) && (length(OStringKey) == 1)
-                                                Os = OStringKey[1]
-                                                if Os == OKey
-                                                    break
-                                                else
-                                                    index = index + 1
-                                                end
-                                            else 
-                                                index = index + 1
-                                            end
+                                    # if both are type [1,2,3], [1,3,4]
+                                    if typeof(boundary_elt2) == Vector{String}
+                                        if boundary_elt1 == boundary_elt2 
+                                            filter!(x->x!=boundary_elt2 ,unique_elts)
+                                            contained = true
+                                            break
+
+                                        else  
+
+                                        end
+                                    # type [1,2,3] and type [[1,2,3],[1,2,4], [1,4,5]]
+                                    else
+                                        if boundary_elt1 in boundary_elt2 
+                                            filter
+                                            contained = true 
+                                            break
                                         end
                                     end
-
-                                    ODiffKeySign = ODiff[OKey] # Sign of Path in differential
-                                    OmegaKeySign = on[OKey] # Sign of path in Omega
-                                    if ODiffKeySign == OmegaKeySign # if the two signs are equal 
-                                        coeff = OmegaNCol[index] 
-                                        OmegaNCol[index] = coeff + 1 # add 1
-                                    else
-                                        coeff = OmegaNCol[index]
-                                        OmegaNCol[index] = coeff - 1 # subtract 1
-
-                                    end
-
-                                    ODiff = delete!(ODiff, OKey) # remove key from differential 
-                                    
-                                elseif length(OKeyList) == combs # If all the paths in the element in Omega are added
-                                    linearCombination = push!(linearCombination, OKey)
-                                    index = getIndexV2(OStringKeys, linearCombination) # get the index
-
-                                    ODiffKeySign = ODiff[OKey] # Sign of Path in differential
-                                    OmegaKeySign = on[OKey] # Sign of path in Omega
-
-                                    if ODiffKeySign == OmegaKeySign # if the two signs are equal 
-                                        coeff = OmegaNCol[index] 
-                                        OmegaNCol[index] = coeff + 1 # add 1
-                                    else
-                                        coeff = OmegaNCol[index]
-                                        OmegaNCol[index] = coeff - 1 # subtract 1
-                                    end
-
-                                    for p in linearCombination
-                                        ODiff = delete!(ODiff, p)  # delete each path in the differential that was in the Omega Element
-                                    end
+                                =#
+                                # first type is [[1,2,3], [[1,3,4], [1,4,5]]]
                                 else
-                                    linearCombination = push!(linearCombination, OKey)
-                                    combs = combs + 1 
-                                end
-
-                            # NEW PART TO SEE IF WORKS!!
-                            else 
-                                linearCombination = push!(linearCombination, OKey)
-                                combs = combs + 1  
-                                if combs == (length(OKeyList) + 1)
-                                    index = getIndexV2(OStringKeys, linearCombination) # get the index
-                                    for okey in linearCombination
-                                        if okey in OmegaKeys
-                                            ODiffKeySign = ODiff[okey] # Sign of Path in differential
-                                            OmegaKeySign = on[okey] # Sign of path in Omega
-        
-                                            if ODiffKeySign == OmegaKeySign # if the two signs are equal 
-                                                coeff = OmegaNCol[index] 
-                                                OmegaNCol[index] = coeff + 1 # add 1
-                                            else
-                                                coeff = OmegaNCol[index]
-                                                OmegaNCol[index] = coeff - 1 # subtract 1
+                                    #second type is [1,2,3]
+                                    if typeof(boundary_elt2) == Vector{String}
+                                        if boundary_elt2 in boundary_elt1 
+                                            filter!(x->x!=boundary_elt2, unique_elts)
+                                            contained = true 
+                                        end
+                                    else
+                                        for elt in boundary_elt1 
+                                            if elt in boundary_elt2
+                                                filter!(x->x!=elt, unique_elts)
+                                                contained = true 
                                             end
                                         end
-                                    end
-                                    for p in linearCombination
-                                        ODiff = delete!(ODiff, p)  # delete each path in the differential that was in the Omega Element
                                     end
                                 end
                             end
-                    
                         end
-                        OmegaKeys = keys(ODiff) # Update the keys in the differential 
+                        unique_Dict[boundary_elt1] = unique_elts
                     end
 
-                end
 
-                if OmegaNCol in OmegaMatrix
-                    for index in 1:length(OmegaMatrix)
-                        if OmegaNCol == OmegaMatrix[index]
-                            OmegaNCol = OmegaNCol - OmegaMatrix[index]
-                            break
+                    omegaKeys = collect(keys(unique_Dict))
+                    og_boundary = On_1Dict[omega_elt]
+                    #println(og_boundary)
+                    OmegaNCol = zeros(length(keys(O)))
+                    for elt in omegaKeys
+                        omegaSign = 0 
+                        if typeof(unique_Dict[elt]) == Vector{String} 
+                            uniqueElt = unique_Dict[elt]
+                        else 
+                            uniqueElt = unique_Dict[elt][1]
+                        end
+
+                        boundarySign = og_boundary[uniqueElt]
+                        for j in 1:length(O)
+                            omegaElt = O[j]
+                            omegaEltKeys = collect(keys(omegaElt))
+                            if typeof(elt) == Vector{String}  
+                                if issetequal(omegaEltKeys,[elt]) == true 
+
+                                    omegaSign = omegaElt[uniqueElt]
+                                    break
+                                end
+
+                            else
+                                if issetequal(omegaEltKeys,elt) == true 
+                                    omegaSign = omegaElt[uniqueElt]
+                                    break
+                                end
+                            end
+
+                        end
+
+                        if  typeof(elt) == Vector{String}
+                            if length(elt) > 2
+                                index = getIndex(On_1String, [elt])
+                                if index == -1
+                                    index = getIndex(On_1String, elt)
+                                end
+
+                            else 
+                                index = getIndex(On_1String, elt)
+                            end
+                        else
+                            index = getIndexV2(On_1String, elt) 
+                        end
+
+                        if omegaSign == boundarySign 
+                            coeff = OmegaNCol[index]
+                            OmegaNCol[index] = coeff + 1
+                        else 
+                            coeff = OmegaNCol[index]
+                            OmegaNCol[index] = coeff -1
                         end
                     end
-                end
-                
-                if -1*OmegaNCol in OmegaMatrix
-                    for index in 1:length(OmegaMatrix)
-                        if -1*OmegaNCol == OmegaMatrix[index]
-                            OmegaNCol = OmegaNCol + OmegaMatrix[index]
-                            break
+                    #=
+                    if i == 2
+                        println("omega_elt: ", omega_elt)
+                        #println(On_1[omega_elt])
+                        println("good boundary: ",goodBoundary_elts)
+                        #println(boundary_elts)
+                        println(OmegaNCol)
+                        s = 0
+                        for e in OmegaNCol
+                            s = s + abs(e)
                         end
-                    end
+                        println((length(goodBoundary_elts), s))
+                      
+                        println()
                 end
-                OmegaDict[K] = OmegaNCol
-                OmegaMatrix = push!(OmegaMatrix, OmegaNCol)
-            end
+                =#
+                    OmegaMatrix = push!(OmegaMatrix, OmegaNCol)
+                end
+            else
+
+
+            # iterate through each differential in Omega n 
+                for (K, ODiff) in On_1Dict
+                    OmegaNCol = zeros(length(keys(O)))
+                    OmegaKeys = keys(ODiff)
+                    OStringKeys = keys(OString)
+
+                    # interate through each elment in Omega n-1
+                    for on in O 
+                        OKeyList = keys(on)
+                        combs = 1
+                        linearCombination = [] 
+                        #=
+                        if i == 3
+                            println(OKeyList)
+                        end =#
+                        # iterate each path in an element in Omega
+                        for OKey in OKeyList
+                            if typeof(OKey) == String
+                                if [OKey] in OmegaKeys
+                                    OKey = [OKey]
+                                    if length(OKeyList) == combs
+                                        index = getIndex(OStringKeys, OKey[1])
+                                        
+                                        ODiffKeySign = ODiff[OKey] # Sign of Path in differential
+                                        OmegaKeySign = on[OKey[1]]
+
+                                        if ODiffKeySign == OmegaKeySign
+                                            coeff = OmegaNCol[index]
+                                            OmegaNCol[index] = coeff + 1
+                                        else
+                                            coeff = OmegaNCol[index]
+                                            OmegaNCol[index] = coeff - 1
+                                        end
+                                        ODiff = delete!(ODiff, OKey)
+                                    end
+                                end
+                            else
+
+                                if OKey in OmegaKeys # check if path in in the differential
+                                    if (length(OKeyList) == combs) && (combs == 1) # check if the element in Omega is a linear combination or not
+                                        index = getIndex(OStringKeys, OKey) 
+                                        if index == -1 # checks if getIndex returns a valid index
+                                            index = 1
+                                            # if it doensn't find the valid index
+                                            for OStringKey in OStringKeys
+                                                if (typeof(OStringKey) == Vector{Any}) && (length(OStringKey) == 1)
+                                                    Os = OStringKey[1]
+                                                    if Os == OKey
+                                                        break
+                                                    else
+                                                        index = index + 1
+                                                    end
+                                                else 
+                                                    index = index + 1
+                                                end
+                                            end
+                                        end
+
+                                        ODiffKeySign = ODiff[OKey] # Sign of Path in differential
+                                        OmegaKeySign = on[OKey] # Sign of path in Omega
+                                        if ODiffKeySign == OmegaKeySign # if the two signs are equal 
+                                            coeff = OmegaNCol[index] 
+                                            OmegaNCol[index] = coeff + 1 # add 1
+                                            #=
+                                            if i == 3
+                                                sum = 0 
+                                                for p in OmegaNCol
+                                                    sum = sum + abs(p)
+                                                end
+                                                println(OKeyList)
+                                                println(sum)
+                                            end=#
+                                        else
+                                            coeff = OmegaNCol[index]
+                                            OmegaNCol[index] = coeff - 1 # subtract 1
+                                           #= 
+                                            if i == 4
+                                                sum = 0 
+                                                for p in OmegaNCol
+                                                    sum = sum + abs(p)
+                                                end
+                                                println(OKeyList)
+                                                println(sum)
+                                            end
+                                            =#
+                                        end
+
+                                        ODiff = delete!(ODiff, OKey) # remove key from differential 
+                                        
+                                    elseif length(OKeyList) == combs # If all the paths in the element in Omega are added
+                                        linearCombination = push!(linearCombination, OKey)
+                                        index = getIndexV2(OStringKeys, linearCombination) # get the index
+
+                                        ODiffKeySign = ODiff[OKey] # Sign of Path in differential
+                                        OmegaKeySign = on[OKey] # Sign of path in Omega
+
+                                        if ODiffKeySign == OmegaKeySign # if the two signs are equal 
+                                            coeff = OmegaNCol[index] 
+                                            OmegaNCol[index] = coeff + 1 # add 1
+                                            #=
+                                            if i == 3
+                                                sum = 0 
+                                                for p in OmegaNCol
+                                                    sum = sum + abs(p)
+                                                end
+                                                println(OKeyList)
+                                                println(sum)
+                                            end=#
+                                        else
+                                            coeff = OmegaNCol[index]
+                                            OmegaNCol[index] = coeff - 1 # subtract 1
+                                            #=
+                                            if i == 3
+                                                sum = 0 
+                                                for p in OmegaNCol
+                                                    sum = sum + abs(p)
+                                                end
+                                                println(OKeyList)
+                                                println(sum)
+                                            end=#
+                                        end
+
+                                        for p in linearCombination
+                                            ODiff = delete!(ODiff, p)  # delete each path in the differential that was in the Omega Element
+                                        end
+                                    else
+                                        linearCombination = push!(linearCombination, OKey)
+                                        combs = combs + 1 
+                                    end
+
+                                # NEW PART TO SEE IF WORKS!!
+                                else 
+                                    linearCombination = push!(linearCombination, OKey)
+                                    combs = combs + 1  
+                                    if combs == (length(OKeyList) + 1)
+                                        index = getIndexV2(OStringKeys, linearCombination) # get the index
+                                        for okey in linearCombination
+                                            if okey in OmegaKeys
+                                                ODiffKeySign = ODiff[okey] # Sign of Path in differential
+                                                OmegaKeySign = on[okey] # Sign of path in Omega
             
+                                                if ODiffKeySign == OmegaKeySign # if the two signs are equal 
+                                                    coeff = OmegaNCol[index] 
+                                                    OmegaNCol[index] = coeff + 1 # add 1
+                                                    #=
+                                                    if i == 3
+                                                        sum = 0 
+                                                        for p in OmegaNCol
+                                                            sum = sum + abs(p)
+                                                        end
+                                                        println(OKeyList)
+                                                        println(sum)
+                                                    end=#
+                                                else
+                                                    coeff = OmegaNCol[index]
+                                                    OmegaNCol[index] = coeff - 1 # subtract 1
+                                                    #=
+                                                    if i == 3
+                                                        sum = 0 
+                                                        for p in OmegaNCol
+                                                            sum = sum + abs(p)
+                                                        end
+                                                        println(OKeyList)
+                                                        println(sum)
+                                                    end =#
+                                                end
+                                            end
+                                        end
+
+                                        for p in linearCombination
+                                            ODiff = delete!(ODiff, p)  # delete each path in the differential that was in the Omega Element
+                                        end
+                                    end
+                                end
+                        
+                            end
+                            OmegaKeys = keys(ODiff) # Update the keys in the differential 
+                        end
+
+                    end
+
+                    if OmegaNCol in OmegaMatrix
+                        for index in 1:length(OmegaMatrix)
+                            if OmegaNCol == OmegaMatrix[index]
+                                OmegaNCol = OmegaNCol - OmegaMatrix[index]
+                                break
+                            end
+                        end
+                    end
+                    
+                    if -1*OmegaNCol in OmegaMatrix
+                        for index in 1:length(OmegaMatrix)
+                            if -1*OmegaNCol == OmegaMatrix[index]
+                                OmegaNCol = OmegaNCol + OmegaMatrix[index]
+                                break
+                            end
+                        end
+                    end
+                    #=
+                    if i == 3
+                        sum = 0 
+                        for p in OmegaNCol
+                            sum = sum + abs(p)
+                        end
+                        println(sum)
+                        println(OmegaNCol)
+                        println()
+                    end
+                    =#
+                    OmegaDict[K] = OmegaNCol
+                    OmegaMatrix = push!(OmegaMatrix, OmegaNCol)
+                end
+            end
+
+
             if length(OmegaMatrix) == 1
                 OmegaMatrix = reshape(OmegaMatrix[1], length(OmegaMatrix[1]),1)
             else
@@ -955,6 +1568,455 @@ module homology
         return OmegaDifferential
     end
 
+
+    function O_diffV4(On, n)
+        OInfo = On 
+        OmegaDifferential = [] 
+
+        # Add O_0
+        O_0 = ones(1, length(OInfo[2][1]))
+        O_0 = round.(Int64, O_0)
+        #O_0 = matrix(ZZ, O_0)
+        OmegaDifferential = push!(OmegaDifferential, O_0)
+        
+        emptyIndex = 0 # emptyIndex counts the number of non empty Omega's so we only loop through Omega's that have elements
+        emptyCheck = OInfo[1]
+        for arr in emptyCheck 
+            if isempty(arr) == true
+                break
+            else
+                emptyIndex = emptyIndex + 1
+            end
+        end
+
+        for i in 1:(emptyIndex-1)
+            OmegaD = []
+            O = OInfo[1][i]
+            OString = OInfo[2][i]
+            On_1 = OInfo[1][i+1]
+            On_1Dict = Dict()
+            diffInfo = OInfo[3][i+1]
+            notAllowed = Dict()
+            # iterate through each element in Omega i+1
+            for o in On_1 
+                linearComb = collect(keys(o))
+                differential = Dict()
+                cancelTerms = []
+                # iterate through each path in an element of Omega i+1
+                for path in linearComb
+                    pathSign = o[path] # sign of a path in an element in Omega
+
+                    pathDiff = diffInfo[path] # differntial of path 
+                    pathDiffKeys = keys(pathDiff) # paths in the differential of path 
+
+                    # iterate through each path in the differential
+                    for pathDiffKey in pathDiffKeys 
+                        
+                        differentialKeys = keys(differential) 
+                        pathDiffCoeff = pathDiff[pathDiffKey] # coefficient of path in differential 
+
+                        if pathDiffKey in differentialKeys # check if path has already been added into the differential 
+                            currCoeff = differential[pathDiffKey]
+                            coeff = pathSign*pathDiffCoeff
+                            total = currCoeff + coeff 
+                            differential[pathDiffKey] = total
+
+                        else
+                            coeff = pathDiffCoeff*pathSign
+                            differential[pathDiffKey] = coeff
+                        end
+                    end
+                end
+
+                # iterate through each path in the differential dictionary
+                for (path,sign) in differential 
+
+                    if sign == 0 # remove all paths in the differential that have a 0 as its coefficient. 
+                        #= 
+                        IDEA: check if the sign is 0 in the above for loop. If it is remove it from the dict. 
+                        =#
+                        push!(cancelTerms, (path, 1))
+                        push!(cancelTerms, (path, -1))
+                        differential = delete!(differential, path)
+                    end
+                end
+                notAllowed[linearComb] = cancelTerms
+                On_1Dict[linearComb] = differential
+                OmegaD = push!(OmegaD, differential)
+            end
+            OmegaMatrix = [] 
+            OmegaDict = Dict()
+
+            if !(i == 1)
+                pairedOmegaDict = pairDifferential(On_1Dict, O, notAllowed)
+                test = collect(keys(pairedOmegaDict))
+
+                omega_elts = [k for k in test]
+
+                for omega_elt in omega_elts
+                    On_1String = collect(keys(OString))
+                    OmegaNCol = zeros(length(keys(O)))
+                    boundary_elts = collect(keys(pairedOmegaDict[omega_elt]))
+                    
+                    og_boundary = collect(keys(On_1Dict[omega_elt]))
+                    goodBoundary_elts = []
+                    matchings = Dict()
+                    trackBoundary_elts = copy(boundary_elts)
+                    for boundary_elt in boundary_elts
+                        if typeof(boundary_elt) == Vector{String}
+                            push!(goodBoundary_elts, boundary_elt)
+                        else 
+                            og_paths  = [] 
+                            for path in boundary_elt 
+                                if path in og_boundary
+                                    push!(og_paths, path)
+                                end
+                            end
+                            if length(boundary_elt) == length(og_paths)
+                                push!(goodBoundary_elts, boundary_elt)
+
+                            else
+                                badPaths = []
+                                for path in boundary_elt 
+                                    if path in og_paths
+
+                                    else
+                                        push!(badPaths, path)
+                                    end
+                                end
+                                matchings[boundary_elt] = (badPaths, length(badPaths))
+                                for elt in trackBoundary_elts
+                                    if !(elt == boundary_elt)
+                                        if issubset(badPaths, elt) == true
+                                            push!(goodBoundary_elts, boundary_elt)
+                                            #push!(goodBoundary_elts, elt)
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+
+                    goodBoundary_elts = unique(goodBoundary_elts)
+
+                    if isempty(matchings) == true
+
+                    else
+                        sortMatchings = sort(collect(matchings), by = x ->x.second[2], rev = true)
+                        copySortMatchings = copy(sortMatchings)
+                        for elt1 in copySortMatchings 
+                            badPaths1, l1 = elt1[2]
+                            allPaths1 = elt1[1]
+
+                            hasMatch = []
+                            contained = false
+                            pathContained = Dict()
+                            for path in badPaths1
+                                pathContained[path] = []
+                                for elt2 in copySortMatchings 
+                                    badPaths2, l2 = elt2[2]
+                                    allPaths2 = elt2[1]
+
+                                    if !(allPaths1 == allPaths2)
+                                        if path in badPaths2
+                                            push!(pathContained[path], true)
+                                        end
+                                    end
+                                end
+                            end
+
+                            for path in badPaths1 
+                                if isempty(pathContained[path ]) == true
+                                    filter!(x->x!=elt1, sortMatchings)   
+                                end
+                            end
+                        end
+                        
+                        good_omegas = [] 
+                        for elt in sortMatchings 
+                            push!(good_omegas, elt[1])
+                        end
+
+                        matchKeys = collect(keys(matchings))
+                        matchingsMinusOmegas = setdiff(matchKeys, good_omegas)
+                        for good_elt in good_omegas 
+                            if good_elt in goodBoundary_elts 
+
+                            else
+                                push!(goodBoundary_elts, good_elt)
+                            end
+                        end
+
+                        for bad_elt in matchingsMinusOmegas 
+                            if bad_elt in goodBoundary_elts 
+                                filter!(x->x!=bad_elt, goodBoundary_elts)
+                            end
+                        end
+                        #temp = setdiff(goodBoundary_elts, matchingsMinusOmegas)
+                        ## CURRENT ASSUMPTION: once you remove the omega elements that have a path that is not in any other omega element you are good to build the matrix
+                        #goodBoundary_elts = temp 
+
+                    end
+                    goodBoundary_elts = unique(goodBoundary_elts)
+  
+                    unique_Dict = Dict()
+                    for boundary_elt1 in goodBoundary_elts 
+                        contained = false
+                        unique_elts = copy(boundary_elt1)
+                        for boundary_elt2 in goodBoundary_elts 
+                            if !(boundary_elt1 == boundary_elt2)
+                                # if first type is [1,2,3]
+                                if typeof(boundary_elt1) == Vector{String} 
+
+                                # first type is [[1,2,3], [[1,3,4], [1,4,5]]]
+                                else
+                                    #second type is [1,2,3]
+                                    if typeof(boundary_elt2) == Vector{String}
+                                        if boundary_elt2 in boundary_elt1 
+                                            filter!(x->x!=boundary_elt2, unique_elts)
+                                            contained = true 
+                                        end
+                                    else
+                                        for elt in boundary_elt1 
+                                            if elt in boundary_elt2
+                                                filter!(x->x!=elt, unique_elts)
+                                                contained = true 
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                        unique_Dict[boundary_elt1] = unique_elts
+                    end
+
+
+                    omegaKeys = collect(keys(unique_Dict))
+                    og_boundary = On_1Dict[omega_elt]
+                    #println(og_boundary)
+                    OmegaNCol = zeros(length(keys(O)))
+                    for elt in omegaKeys
+                        omegaSign = 0 
+                        if typeof(unique_Dict[elt]) == Vector{String} 
+                            uniqueElt = unique_Dict[elt]
+                        else 
+                            uniqueElt = unique_Dict[elt][1]
+                        end
+
+                        boundarySign = og_boundary[uniqueElt]
+                        for j in 1:length(O)
+                            omegaElt = O[j]
+                            omegaEltKeys = collect(keys(omegaElt))
+                            if typeof(elt) == Vector{String}  
+                                if issetequal(omegaEltKeys,[elt]) == true 
+
+                                    omegaSign = omegaElt[uniqueElt]
+                                    break
+                                end
+
+                            else
+                                if issetequal(omegaEltKeys,elt) == true 
+                                    omegaSign = omegaElt[uniqueElt]
+                                    break
+                                end
+                            end
+
+                        end
+
+                        if  typeof(elt) == Vector{String}
+                            if length(elt) > 2
+                                index = getIndex(On_1String, [elt])
+                                if index == -1
+                                    index = getIndex(On_1String, elt)
+                                end
+
+                            else 
+                                index = getIndex(On_1String, elt)
+                            end
+                        else
+                            index = getIndexV2(On_1String, elt) 
+                        end
+
+                        if omegaSign == boundarySign 
+                            coeff = OmegaNCol[index]
+                            OmegaNCol[index] = coeff + 1
+                        else 
+                            coeff = OmegaNCol[index]
+                            OmegaNCol[index] = coeff -1
+                        end
+                    end
+
+                    OmegaMatrix = push!(OmegaMatrix, OmegaNCol)
+                end
+            else
+
+
+            # iterate through each differential in Omega n 
+                for (K, ODiff) in On_1Dict
+                    OmegaNCol = zeros(length(keys(O)))
+                    OmegaKeys = keys(ODiff)
+                    OStringKeys = keys(OString)
+
+                    # interate through each elment in Omega n-1
+                    for on in O 
+                        OKeyList = keys(on)
+                        combs = 1
+                        linearCombination = [] 
+           
+                        # iterate each path in an element in Omega
+                        for OKey in OKeyList
+                            if typeof(OKey) == String
+                                if [OKey] in OmegaKeys
+                                    OKey = [OKey]
+                                    if length(OKeyList) == combs
+                                        index = getIndex(OStringKeys, OKey[1])
+                                        
+                                        ODiffKeySign = ODiff[OKey] # Sign of Path in differential
+                                        OmegaKeySign = on[OKey[1]]
+
+                                        if ODiffKeySign == OmegaKeySign
+                                            coeff = OmegaNCol[index]
+                                            OmegaNCol[index] = coeff + 1
+                                        else
+                                            coeff = OmegaNCol[index]
+                                            OmegaNCol[index] = coeff - 1
+                                        end
+                                        ODiff = delete!(ODiff, OKey)
+                                    end
+                                end
+                            else
+
+                                if OKey in OmegaKeys # check if path in in the differential
+                                    if (length(OKeyList) == combs) && (combs == 1) # check if the element in Omega is a linear combination or not
+                                        index = getIndex(OStringKeys, OKey) 
+                                        if index == -1 # checks if getIndex returns a valid index
+                                            index = 1
+                                            # if it doensn't find the valid index
+                                            for OStringKey in OStringKeys
+                                                if (typeof(OStringKey) == Vector{Any}) && (length(OStringKey) == 1)
+                                                    Os = OStringKey[1]
+                                                    if Os == OKey
+                                                        break
+                                                    else
+                                                        index = index + 1
+                                                    end
+                                                else 
+                                                    index = index + 1
+                                                end
+                                            end
+                                        end
+
+                                        ODiffKeySign = ODiff[OKey] # Sign of Path in differential
+                                        OmegaKeySign = on[OKey] # Sign of path in Omega
+                                        if ODiffKeySign == OmegaKeySign # if the two signs are equal 
+                                            coeff = OmegaNCol[index] 
+                                            OmegaNCol[index] = coeff + 1 # add 1
+        
+                                        else
+                                            coeff = OmegaNCol[index]
+                                            OmegaNCol[index] = coeff - 1 # subtract 1
+                                        end
+
+                                        ODiff = delete!(ODiff, OKey) # remove key from differential 
+                                        
+                                    elseif length(OKeyList) == combs # If all the paths in the element in Omega are added
+                                        linearCombination = push!(linearCombination, OKey)
+                                        index = getIndexV2(OStringKeys, linearCombination) # get the index
+
+                                        ODiffKeySign = ODiff[OKey] # Sign of Path in differential
+                                        OmegaKeySign = on[OKey] # Sign of path in Omega
+
+                                        if ODiffKeySign == OmegaKeySign # if the two signs are equal 
+                                            coeff = OmegaNCol[index] 
+                                            OmegaNCol[index] = coeff + 1 # add 1
+
+                                        else
+                                            coeff = OmegaNCol[index]
+                                            OmegaNCol[index] = coeff - 1 # subtract 1
+                                        end
+
+                                        for p in linearCombination
+                                            ODiff = delete!(ODiff, p)  # delete each path in the differential that was in the Omega Element
+                                        end
+                                    else
+                                        linearCombination = push!(linearCombination, OKey)
+                                        combs = combs + 1 
+                                    end
+
+                                # NEW PART TO SEE IF WORKS!!
+                                else 
+                                    linearCombination = push!(linearCombination, OKey)
+                                    combs = combs + 1  
+                                    if combs == (length(OKeyList) + 1)
+                                        index = getIndexV2(OStringKeys, linearCombination) # get the index
+                                        for okey in linearCombination
+                                            if okey in OmegaKeys
+                                                ODiffKeySign = ODiff[okey] # Sign of Path in differential
+                                                OmegaKeySign = on[okey] # Sign of path in Omega
+            
+                                                if ODiffKeySign == OmegaKeySign # if the two signs are equal 
+                                                    coeff = OmegaNCol[index] 
+                                                    OmegaNCol[index] = coeff + 1 # add 1
+
+                                                else
+                                                    coeff = OmegaNCol[index]
+                                                    OmegaNCol[index] = coeff - 1 # subtract 1
+                                                end
+                                            end
+                                        end
+
+                                        for p in linearCombination
+                                            ODiff = delete!(ODiff, p)  # delete each path in the differential that was in the Omega Element
+                                        end
+                                    end
+                                end
+                        
+                            end
+                            OmegaKeys = keys(ODiff) # Update the keys in the differential 
+                        end
+
+                    end
+
+                    if OmegaNCol in OmegaMatrix
+                        for index in 1:length(OmegaMatrix)
+                            if OmegaNCol == OmegaMatrix[index]
+                                OmegaNCol = OmegaNCol - OmegaMatrix[index]
+                                break
+                            end
+                        end
+                    end
+                    
+                    if -1*OmegaNCol in OmegaMatrix
+                        for index in 1:length(OmegaMatrix)
+                            if -1*OmegaNCol == OmegaMatrix[index]
+                                OmegaNCol = OmegaNCol + OmegaMatrix[index]
+                                break
+                            end
+                        end
+                    end
+                    OmegaDict[K] = OmegaNCol
+                    OmegaMatrix = push!(OmegaMatrix, OmegaNCol)
+                end
+            end
+
+
+            if length(OmegaMatrix) == 1
+                OmegaMatrix = reshape(OmegaMatrix[1], length(OmegaMatrix[1]),1)
+            else
+                OmegaMatrix = reduce(hcat, OmegaMatrix)
+            end
+            OmegaMatrixZZ = round.(Int128, OmegaMatrix)
+            #OmegaMatrixZZ = matrix(ZZ,OmegaMatrixZZ) # convert to ring of integers
+            OmegaMatrixZZ = SparseMatrixCSC{Int128}(OmegaMatrixZZ)
+            OmegaDifferential = push!(OmegaDifferential, OmegaMatrixZZ) 
+        end
+
+        for j in emptyIndex:(n-1) # add empty array for all empty Omegas
+            OmegaDifferential = push!(OmegaDifferential, [])
+        end
+        
+        return OmegaDifferential
+    end
     #==============================================================================================================
     snfDiagonal input: 
     (1) M: Matrix 
@@ -1012,7 +2074,7 @@ module homology
         On = O_n(allowedPaths,n)
 
         # Calculate the Differentials 
-        ODiff = O_diffV3(On, n)
+        ODiff = O_diffV4(On, n)
         # calculate the path homology for H0
         zeroMtx = round.(Int128, zeros(1,1))
         zeroMtx = SparseMatrixCSC{Int128}(zeroMtx)
