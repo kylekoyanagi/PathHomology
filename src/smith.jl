@@ -447,207 +447,6 @@ function makeCopies(x,n)
     end
     return copyArray
 end
-#=
-    Parallel Smith Normal Form
-    INPUT: 
-        (1) M: sparse mxn matrix
-        (2) with_transform: true if you want to calculate the column trasformation matrix; false otherwise
-    OUTPUT: 
-        (1) M: sparse mxn matrix in smith normal form
-        (2) T: sparse nxn column transformation matrix 
-    Parallelization Idea: 
-        (1) Partition the rows/columns of a matrix uniformly. All partitions contain the pivot, t. 
-        (2) Each thread looks at a specific part of the partition and clears those rows/columns in its parition.
-=#
-function smithP(M, with_transform = true)
-    m, n = size(M)
-    min = minimum([m,n])
-    k = nthreads()
-    if with_transform == true
-        T = sparse(Matrix(1I, n, n))
-    end
-    for t in 1:min
-        #M = dropzeros(M)
-
-        # find nonzero column, priority on columns with a +/- 1
-        nonzeroCol = nonzerocol(M, t)
-
-        if nonzeroCol == -1
-            continue
-        end
-
-        # swap columns t and the nonzero column
-        if !(t == nonzeroCol)
-            swapcol!(M, t, nonzeroCol)
-            if with_transform == true
-                swapcol!(T, t, nonzeroCol)
-            end
-        end
-
-        # find nonzero row, priority on row with a +/- 1
-        nonzeroRow = nonzerorow(M, t, t)
-        if nonzeroRow == -1
-            continue
-        end
-        
-        # swap row t and the nonzero row
-        if !(t == nonzeroRow)
-            swaprow!(M, t, nonzeroRow)
-        end
-
-        rowPartition = distMatrix2(k,t,m)
-        parSize = length(rowPartition)
-        C = Channel{Tuple{SparseMatrixCSC{Int128, Int128}, Vector{Int64}}}(length(rowPartition))
-        #pivotRowCopies = makeCopies()
-        # loop through the partition
-        @threads for l in 1:parSize
-            indicies = rowPartition[l]
-            mm = length(indicies)
-            pivot = deepcopy(M[t,t])
-            # clear everything under the pivot in the partition i.e. perform row operations
-            for i in indicies
-                if !(i == t)
-
-                    ai = deepcopy(M[i, t])
-
-                    # If the entry M[i,t] is nonzero, we need to clear it 
-                    if !(ai == 0)
-                        #= 
-                        If the pivot is 1, perform column subtraction: 
-                            M[:,i] = M[:,i] - M[t,i]*M[:,t]
-                        to clear the entry M[t,i].
-                        =#
-                        if pivot == 1
-                            rowsubtraction!(M,i,t,ai)
-       
-                        #= 
-                        If the pivot divides M[i,t], calculate pivot/M[i,t], and perform row subtraction:
-                            M[i,:] = M[i,:] - (pivot/M[i,t])*M[t,:]
-                        to clear the entry M[i,t]
-                        =#
-                        elseif (mod(ai,pivot) == 0)
-                            factor = ai / pivot
-                            rowsubtraction!(M,i,t,factor)
-
-                        #=
-                        Otherwise, use extended euclidean algorithm to get d,x,y such that:
-                            d = M[t,t]*x + M[i,t]*y
-                        Then, use row addition:
-                            M[i,:] = y*M[i,:] + x*M[t,:]
-                        to make the entry M[i,t] = d
-                        Finally, calculate pivot/d, scale row M[i,:] by pivot/d, and perform row subtraction:
-                            M[i,:] = M[i,:] - M[t,:]
-                        to clear the entry M[i,t]
-                        =#
-                        else
-                            d, x, y = gcdExt(pivot, ai)
-                            rowaddition!(M, i, t, y, x)
-                            factor = pivot / d
-                            scalerow!(M,i, factor)
-                            rowsubtraction!(M,i,t,1)
-                        end
-                    end
-                end
-            end
-        end
-        close(C)
-
-        colPartition = distMatrix2(k,t,n)
-        parSize = length(colPartition)
-        dropzeros!(M)
-        pivotcol = M[:,t]
-        pivotcolT = T[:,t]
-        cols = []
-        colsT = []
-        for i in 1:length(colPartition)
-            push!(cols,pivotcol)
-            push!(colsT,pivotcolT)
-        end
-
-        B = Channel{Tuple{SparseMatrixCSC{Int128, Int128}, SparseMatrixCSC{Int128, Int128}, Vector{Any}}}(length(colPartition))
-        # loop through the partition
-        @threads for l in 1:parSize
-            indicies = colPartition[l]
-            nn = length(indicies)
-            pivotj = deepcopy(M[t,t])
-
-            # clear everything to the right of the pivot in the partition i.e. perform column operations
-            for index in 1:length(indicies)
-                j = indicies[index]
-                if !(j == t)
-
-                    aj = deepcopy(M[t, j])
-                    pivotcol = cols[l]
-                    pivotcolT = colsT[l]
-
-                    # If the entry M[t,j] is nonzero, we need to clear it 
-                    if !(aj == 0)
-                        #= 
-                        If the pivot is 1, perform column subtraction: 
-                            M[:,i] = M[:,i] - M[t,i]*M[:,t]
-                        to clear the entry M[t,i].
-                        =#      
-                        if pivotj == 1
-                            colsubtractionp!(M,j,pivotcol,aj)
-
-                            if with_transform == true
-                                colsubtractionp!(T,j,pivotcolT,aj)
-                            end
-
-                        #= 
-                        If the pivot divides M[i,t], calculate pivot/M[i,t], and perform column subtraction:
-                            M[:,i] = M[:,i] - (pivot/M[t,i])*M[:,t]
-                        to clear the entry M[t,i]
-                        =#     
-                        elseif pivotj == 0
-                            println("pivot is 0 at: ", t)
-                        elseif (mod(aj,pivotj) == 0)
-                            factor = aj / pivotj
-                                colsubtractionp!(M,j,pivotcol,factor)
-
-                            if with_transform == true
-                                colsubtractionp!(T,j,pivotcolT,factor)
-                            end
-
-                        #=
-                        Otherwise, use extended euclidean algorithm to get d,x,y such that:
-                            d = M[t,t]*x + M[t,i]*y
-                        Then, use column addition:
-                            M[:,i] = y*M[:,i] + x*M[:,t]
-                        to make the entry M[t,i] = d
-                        Finally, calculate pivot/d, scale row M[:,i] by pivot/d, and perform column subtraction:
-                            M[:,i] = M[:,i] - M[:,t]
-                        to clear the entry M[t,i]
-                        =#  
-                        else
-                            d, x, y = gcdExt(pivotj, aj)
-                            coladditionp!(M,j,pivotcol,y,x)
-
-                            if with_transform == true
-                                coladditionp!(T,j,pivotcolT,y,x)
-
-                            end
-                            factor = pivotj / d
-                            scalecol!(M, j, factor)
-                            colsubtractionp!(M,j,pivotcol,1)
-
-                            if with_transform == true
-                                scalecol!(T, j, factor)
-                                colsubtractionp!(T,j,pivotcolT,1)
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        close(B)
-
-    end
-    if with_transform == true
-        return M,T
-    end
-    return M
-end
 
 function colsubtractionC!(x, col1, col2, factor = 1)
     rows = copy(rowvals(x))
@@ -839,6 +638,17 @@ function clearCol(M, col, pivot)
     return M
 end
 
+#=
+    Parallel Smith Normal Form
+    INPUT: 
+        (1) M: sparse mxn matrix
+        (2) with_transform: true if you want to calculate the column trasformation matrix; false otherwise
+    OUTPUT: 
+        (1) M: sparse mxn matrix in smith normal form
+        (2) T: sparse nxn column transformation matrix 
+    Parallelization Idea: 
+        (1) distribute rows/columns across mutliple threads and perform row/col operations simultaneously
+=#
 function SNForm(M, with_transform = false)
     m, n = size(M)
     min = minimum([m,n])
