@@ -10,14 +10,14 @@ module graph_preprocess
         end
         for e in E
 
-            push!(newE, [vertD[string.(e[1])],vertD[string.(e[2])]])
+            push!(newE, [vertD[e[1]],vertD[e[2]]])
         end
         return newV, newE
     end   
 
     function relabelGraph(V,E)
         if !(typeof(V) == Vector{Int64})
-            V = string.(V)
+            V = V
             V, E = relabel(V,E)
         else
             if minimum(V) < 1
@@ -32,10 +32,22 @@ module graph_preprocess
         push!(adj[u], v)
     end
 
+    function addWeightedEdge!(adj,u,v,w)
+        push!(adj[u], (v,w))
+    end
+
     function buildAdjacencyList(V,E)
         adj = [[] for _ in 1:length(V)]
         for e in E
-            addEdge!(adj, e[1], e[2])
+            addEdge!(adj, e[1], (e[2]))
+        end
+        return adj
+    end
+
+    function buildWeightedAdjacencyList(V,E)
+        adj = [[] for _ in 1:length(V)]
+        for e in E
+            addWeightedEdge!(adj, e[2][1], e[2][2], e[1])
         end
         return adj
     end
@@ -54,6 +66,7 @@ module graph_preprocess
                 if contained == false
                     deleteat!(V, findall(x->x==i,V))
                     deleteat!(E, findall(x->x==[i,aList[1]],E))
+                    return V,E
                 end
             end
 
@@ -70,6 +83,7 @@ module graph_preprocess
                 if count == 1
                     deleteat!(V, findall(x->x==i,V))
                     deleteat!(E, findall(x->x==[index,i],E))
+                    return V,E
                 end
             end
         end
@@ -199,6 +213,7 @@ module graph_preprocess
                 V,E = relabel(V,E)
                 adj = buildAdjacencyList(V,E)
                 n = length(V)
+
             else 
                 hanging = false
             end
@@ -212,7 +227,6 @@ module graph_preprocess
             else 
                 degree_n = false
             end
-
             V,E = removeDegree1plus1Vertex(V,E,adj)
             if length(V) < n
                 deg_1plus1 = true
